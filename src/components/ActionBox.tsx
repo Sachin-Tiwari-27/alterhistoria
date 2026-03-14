@@ -50,13 +50,26 @@ export function ActionBox({ onConsequence }: ActionBoxProps) {
     }
   }
 
+  const budget = player ? Math.floor((player.gdp * 0.25) + (player.trade * 0.15)) : 0
+  const talent = player ? Math.floor(player.hdi * 1.2) : 0
+
   if (!player) return null
 
   return (
     <div className="flex-shrink-0 bg-card border-t border-border p-3">
-      <label className="block font-cinzel text-[8px] tracking-[0.2em] text-muted-foreground uppercase mb-2">
-        ◆ {getPlayerDisplayName()} — {year} Q{quarter} — Your decree
-      </label>
+      <div className="flex justify-between items-baseline mb-2">
+        <label className="block font-cinzel text-[8px] tracking-[0.2em] text-muted-foreground uppercase">
+          ◆ {getPlayerDisplayName()} — {year} Q{quarter} — Your decree
+        </label>
+        <div className="flex gap-3">
+          <span className="text-[9px] font-mono-game text-amber-500 whitespace-nowrap">
+            BUDGET: ₤{budget}B
+          </span>
+          <span className="text-[9px] font-mono-game text-sky-500 whitespace-nowrap">
+            TALENT: {talent}
+          </span>
+        </div>
+      </div>
       <div className="flex gap-2">
         <textarea
           value={action}

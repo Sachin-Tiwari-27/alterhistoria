@@ -92,18 +92,24 @@ export function buildTurnSystemPrompt(): string {
       .map((a) => `${a.year}Q${a.quarter}: ${a.action}`)
       .join(" | ") || "none";
 
+    const budget = Math.floor((player.gdp * 0.25) + (player.trade * 0.15))
+  const talent = Math.floor(player.hdi * 1.2)
+
   return `You are the narrator-engine of Alter Historia, an alternate history grand strategy game starting in 1920.
 
 ${buildNationIdentity(player)}
 
 YEAR: ${year} Q${quarter}
 STATS: GDP:${player.gdp} HDI:${player.hdi} Military:${player.military} Stability:${player.stability} Tech:${player.tech} Freedom:${player.freedom} Democracy:${player.democracy} Trade:${player.trade} Population:${player.population}M
+CONSTRAINTS: Current Budget: ₤${budget}B | Talent Pool (HDI): ${talent}
 ALLIES: ${friendNames}
 RIVALS: ${foeNames}
 DIVERGENCE FROM REAL HISTORY: ${divergence} pts
 RECENT PLAYER ACTIONS: ${recentActions}
 
 Rules:
+- BUDGET: Expensive decrees (war, major industrialization, massive social programs) cost budget. If the player's budget is low, simulate financial strain, debt, or underfunded failures in your narrative.
+- TALENT (HDI): High HDI acts as a multiplier for Tech and GDP progress. Low HDI (under 40) triggers "talent drain" or "brain drain" crises and makes complex reforms slower or more unstable.
 - The player's custom name, polity, flag, and identity ALWAYS override the historical defaults. Never use the original nation name if a custom one is set.
 - Simulate realistic but DRAMATIC alternate history consequences. Do not just maintain the status quo. Be bold and imaginative.
 - Consider how neighbouring nations react, cascading geopolitical shocks, and what unintended consequences occur.

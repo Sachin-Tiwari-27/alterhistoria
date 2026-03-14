@@ -99,15 +99,40 @@ export const useGameStore = create<GameState>()(
       applyTurnResult: (result, action) => set(s => {
         if (!s.player) return
 
-        // Apply stat changes
+        // Apply stat changes with HDI scaling
+        const hdiEff = clamp(s.player.hdi / 50, 0.5, 2.0) // 50 is normal. <50 = penalty, >50 = bonus.
+
         STAT_KEYS.forEach(k => {
-          const delta = (result.statChanges as Record<string, number>)[k]
+          let delta = (result.statChanges as Record<string, number>)[k]
           if (delta !== undefined && delta !== 0) {
+            // HDI impacts tech and gdp progress specifically
+            if (k === 'tech' || k === 'gdp') delta *= hdiEff
+
             const max = k === 'population' ? 5000 : 100
             const p = s.player as unknown as Record<string, number>
             p[k] = clamp(p[k] + delta, 0, max)
           }
         })
+
+        // Sync player to global nations for rankings
+        if (s.nations[s.player.id]) {
+          Object.assign(s.nations[s.player.id], s.player)
+        }
+
+        // AI Nation Drift (random geopolitical shifts in other countries)
+        if (s.turn % 2 === 0) {
+          Object.keys(s.nations).forEach(id => {
+            if (id === s.player!.id) return
+            const keys = [...STAT_KEYS].sort(() => Math.random() - 0.5).slice(0, 2)
+            keys.forEach(k => {
+              const drift = (Math.random() * 3 - 1.5) // -1.5 to +1.5
+              const val = (s.nations[id] as any)[k] as number
+              if (val !== undefined) {
+                (s.nations[id] as any)[k] = clamp(val + drift, 5, 100)
+              }
+            })
+          })
+        }
 
         // Relations
         result.newFriends.forEach(id => {

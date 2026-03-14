@@ -41,11 +41,27 @@ export function WorldRankingsModal() {
   }
 
   const rows = useMemo(() => {
-    const all = Object.values(COUNTRIES).map(c => ({
-      ...c,
-      // Use live nation stats if available
-      ...(nations[c.id] ? { gdp: nations[c.id].gdp, military: nations[c.id].military, stability: nations[c.id].stability, tech: nations[c.id].tech, trade: nations[c.id].trade, hdi: nations[c.id].hdi, freedom: nations[c.id].freedom, democracy: nations[c.id].democracy } : {}),
-    }))
+    const all = Object.values(COUNTRIES).map(c => {
+      const live = nations[c.id]
+      const isPlayer = c.id === player?.id
+      return {
+        ...c,
+        name: isPlayer ? (player?.customName ?? player?.name ?? c.name) : c.name,
+        flag: isPlayer ? (player?.customFlag ?? player?.flag ?? c.flag) : c.flag,
+        // Use live nation stats if available
+        ...(live ? {
+          gdp: live.gdp,
+          military: live.military,
+          stability: live.stability,
+          tech: live.tech,
+          trade: live.trade,
+          hdi: live.hdi,
+          freedom: live.freedom,
+          democracy: live.democracy,
+          population: live.population
+        } : {}),
+      }
+    })
     return all
       .filter(c => regionFilter === 'All' || c.region === regionFilter)
       .filter(c => !search || c.name.toLowerCase().includes(search.toLowerCase()))

@@ -28,18 +28,32 @@ export function getCountryFill(
     return d3c.formatHex()
   }
 
-  // If the actual clicked/rendered polygon ID is your own nation, it should ALWAYS look like 'Your Nation'
-  // even if it's currently occupied by an enemy, so you can easily spot your homeland!
+  // 1. Homelands (Player)
   if (id === player?.id || effectiveId === player?.id) {
     return player.customColor ?? player.color ?? (theme === 'dark' ? '#d4a843' : '#b48833')
   }
 
-  // Calculate relation relative to the owner (occupier or self)
+  // 2. Occupied (if not self/ally/foe)
+  if (occupierId && occupierId !== id) {
+    return theme === 'dark' ? '#27272a' : '#52525b' // Dark grey for occupied
+  }
+
+  // 3. Relations
   if (player.friends.includes(effectiveId)) return theme === 'dark' ? '#166534' : '#22c55e'
   if (player.foes.includes(effectiveId))    return theme === 'dark' ? '#991b1b' : '#ef4444'
   
-  // Neutral nations get a flat background to make the UI and map text readable
-  return theme === 'dark' ? '#0a0a0a' : '#ffffff'
+  // 4. Neutral (faint base color)
+  const c = COUNTRIES[effectiveId]
+  if (!c) return theme === 'dark' ? '#0a0a0a' : '#ffffff'
+  const d3c = d3.hsl(c.color)
+  if (theme === 'dark') {
+    d3c.l = 0.08
+    d3c.s *= 0.3
+  } else {
+    d3c.l = 0.95
+    d3c.s *= 0.3
+  }
+  return d3c.formatHex()
 }
 
 export const OCEAN_COLOR: Record<'dark' | 'light', string> = {

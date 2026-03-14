@@ -29,7 +29,6 @@ export function TimeJump() {
     if (!player || loading) return
     setError('')
     setLoading(true)
-    setResult('')
     try {
       const milestones = getMilestonesForRange(year, clampedTarget)
       const system = buildTimeJumpSystemPrompt(clampedTarget, milestones)

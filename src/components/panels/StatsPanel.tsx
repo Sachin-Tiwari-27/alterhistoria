@@ -70,6 +70,10 @@ export function StatsPanel() {
   const flag = player.customFlag ?? player.flag
   const capital = player.customCapital ?? player.capital
 
+  // Derived stats
+  const budget = Math.floor((player.gdp * 0.25) + (player.trade * 0.15))
+  const talentPool = Math.floor(player.hdi * 1.2)
+
   return (
     <aside className="w-56 h-full flex-shrink-0 bg-card border-r border-border flex flex-col overflow-hidden">
       {/* Header */}
@@ -97,8 +101,18 @@ export function StatsPanel() {
       <div className="flex-1 overflow-y-auto p-3">
         {/* Economy */}
         <p className="font-cinzel text-[8px] tracking-widest text-muted-foreground uppercase border-b border-border pb-1 mb-2">
-          Economy
+          Economy & Finance
         </p>
+        <div className="mb-4 grid grid-cols-2 gap-2">
+          <div className="bg-muted/50 p-2 rounded-sm border border-border/50">
+            <div className="text-[8px] font-cinzel text-muted-foreground uppercase mb-1">Budget</div>
+            <div className="text-sm font-mono-game text-amber-500 font-bold">₤{budget}B</div>
+          </div>
+          <div className="bg-muted/50 p-2 rounded-sm border border-border/50">
+            <div className="text-[8px] font-cinzel text-muted-foreground uppercase mb-1">Talent</div>
+            <div className="text-sm font-mono-game text-sky-500 font-bold">{talentPool}</div>
+          </div>
+        </div>
           {STAT_CONFIG.slice(0, 2).map((s) => (
             <StatBar key={s.key} label={s.label} value={player[s.key] as number} color={s.color} max={s.max} tooltip={s.tooltip} />
           ))}

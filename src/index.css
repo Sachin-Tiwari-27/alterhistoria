@@ -100,8 +100,14 @@
   .nation-pulse {
     animation: nation-glow 2.5s ease-in-out infinite;
   }
+
   @keyframes nation-glow {
     0%, 100% { opacity: 0.8; }
     50%       { opacity: 0.3; }
   }
+}
+
+@keyframes shrink {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
 }

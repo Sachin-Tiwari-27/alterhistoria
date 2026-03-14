@@ -168,6 +168,7 @@ export function WorldMap() {
           { color: theme === 'dark' ? '#d4a843' : '#b48833', label: 'Your nation' },
           { color: theme === 'dark' ? '#166534' : '#22c55e', label: 'Ally' },
           { color: theme === 'dark' ? '#991b1b' : '#ef4444', label: 'Rival' },
+          { color: theme === 'dark' ? '#27272a' : '#52525b', label: 'Occupied' },
           { color: theme === 'dark' ? '#0a0a0a' : '#ffffff', label: 'Neutral', border: theme === 'dark' ? '#27272a' : '#e5e7eb' },
         ].map(({ color, label, border }) => (
           <div key={label} className="flex items-center gap-2 mb-1 last:mb-0">
