@@ -8,46 +8,56 @@ export interface AIMessage {
 
 // ─── Core caller ────────────────────────────────────────────────────────────
 
+const PRIMARY_MODEL  = 'openrouter/hunter-alpha'
+const FALLBACK_MODEL = 'arcee-ai/trinity-mini:free'
+
+async function callOpenRouter(
+  model: string,
+  system: string,
+  messages: AIMessage[],
+  maxTokens: number,
+  apiKey: string,
+): Promise<string> {
+  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+      'HTTP-Referer': 'https://alterhistoria.game',
+      'X-Title': 'Alter Historia',
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: maxTokens,
+      messages: [{ role: 'system', content: system }, ...messages],
+    }),
+  })
+  const data = await res.json()
+  if (data.error) throw new Error(data.error.message ?? `OpenRouter error (${model})`)
+  const text = data.choices?.[0]?.message?.content ?? ''
+  if (!text) throw new Error(`Empty response from ${model}`)
+  return text
+}
+
 export async function callAI(
   system: string,
   messages: AIMessage[],
   maxTokens = 900,
 ): Promise<string> {
-  const apiKey = useGameStore.getState().apiKey;
+  const apiKey = useGameStore.getState().apiKey
+  if (!apiKey) throw new Error('No API key set. Please add your OpenRouter key in Settings.')
 
-  if (apiKey) {
-    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-        "HTTP-Referer": "https://alterhistoria.game",
-        "X-Title": "Alter Historia",
-      },
-      body: JSON.stringify({
-        model: "openrouter/hunter-alpha",
-        max_tokens: maxTokens,
-        messages: [{ role: "system", content: system }, ...messages],
-      }),
-    });
-    const data = await res.json();
-    if (data.error) throw new Error(data.error.message ?? "OpenRouter error");
-    return data.choices?.[0]?.message?.content ?? "";
+  try {
+    return await callOpenRouter(PRIMARY_MODEL, system, messages, maxTokens, apiKey)
+  } catch (primaryErr) {
+    console.warn(`[AI] Primary model failed (${PRIMARY_MODEL}):`, primaryErr)
+    try {
+      return await callOpenRouter(FALLBACK_MODEL, system, messages, maxTokens, apiKey)
+    } catch (fallbackErr) {
+      console.error(`[AI] Fallback model also failed (${FALLBACK_MODEL}):`, fallbackErr)
+      throw new Error(`AI unavailable. Primary: ${(primaryErr as Error).message}. Fallback: ${(fallbackErr as Error).message}`)
+    }
   }
-
-  // Fallback: Anthropic built-in
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: maxTokens,
-      system,
-      messages,
-    }),
-  });
-  const data = await res.json();
-  return data.content?.[0]?.text ?? "";
 }
 
 // ─── Nation identity block (used in every prompt) ───────────────────────────

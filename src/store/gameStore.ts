@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 import { persist } from 'zustand/middleware'
 import { uid, clamp } from '@/lib/utils'
-import type { PlayerNation, CountryBase, TurnAction, WorldEvent, TurnResult, NationStats } from '@/types'
+import type { PlayerNation, CountryBase, TurnAction, WorldEvent, TurnResult, NationStats, ActionRecord } from '@/types'
 import { COUNTRIES } from '@/data/countries'
 
 export const HISTORICAL_OCCUPATIONS_1920: Record<string, string> = {
@@ -31,6 +31,7 @@ interface GameState {
   player: PlayerNation | null
   nations: Record<string, CountryBase>
   actions: TurnAction[]
+  actionHistory: ActionRecord[]
   events: WorldEvent[]
   ticker: string
   draftAction: string
@@ -64,6 +65,7 @@ export const useGameStore = create<GameState>()(
       player: null,
       nations: JSON.parse(JSON.stringify(COUNTRIES)),
       actions: [],
+      actionHistory: [],
       events: [],
       ticker: '◆ The Great War has ended. The League of Nations convenes. A new century begins. What will you make of it?',
       draftAction: '',
@@ -81,6 +83,7 @@ export const useGameStore = create<GameState>()(
         s.turn = 1
         s.divergence = 0
         s.actions = []
+        s.actionHistory = []
         s.draftAction = ''
         s.occupations = { ...HISTORICAL_OCCUPATIONS_1920 }
         s.events = [{
@@ -137,7 +140,21 @@ export const useGameStore = create<GameState>()(
         s.divergence = clamp(s.divergence + result.divergenceDelta, 0, 9999)
         if (result.ticker) s.ticker = `◆ ${s.year}: ${result.ticker}`
 
-        // Record action
+        // Record action + consequences in history
+        const deltaMap: Partial<NationStats> = {}
+        STAT_KEYS.forEach(k => {
+          const delta = (result.statChanges as Record<string, number>)[k]
+          if (delta !== undefined && delta !== 0) deltaMap[k] = delta
+        })
+        s.actionHistory.unshift({
+          id: uid(),
+          year: s.year,
+          quarter: s.quarter,
+          action,
+          narrative: result.narrative ?? '',
+          events: result.worldEvents.map(e => e.text),
+          statDeltas: deltaMap,
+        })
         s.actions.push({ year: s.year, quarter: s.quarter, action })
 
         // Add world events
@@ -179,7 +196,7 @@ export const useGameStore = create<GameState>()(
         s.player = null
         s.nations = JSON.parse(JSON.stringify(COUNTRIES))
         s.year = 1920; s.quarter = 1; s.turn = 1; s.divergence = 0
-        s.actions = []; s.events = []; s.draftAction = ''
+        s.actions = []; s.actionHistory = []; s.events = []; s.draftAction = ''
         s.occupations = { ...HISTORICAL_OCCUPATIONS_1920 }
       }),
     })),
@@ -189,7 +206,8 @@ export const useGameStore = create<GameState>()(
         year: s.year, quarter: s.quarter, turn: s.turn,
         divergence: s.divergence, apiKey: s.apiKey,
         player: s.player, nations: s.nations,
-        actions: s.actions, events: s.events, ticker: s.ticker,
+        actions: s.actions, actionHistory: s.actionHistory,
+        events: s.events, ticker: s.ticker,
         draftAction: s.draftAction, occupations: s.occupations
       }),
     }

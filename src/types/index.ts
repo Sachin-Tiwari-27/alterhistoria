@@ -54,6 +54,28 @@ export interface WorldEvent {
   quarter: number
   text: string
   type: EventType
+  source?: 'real' | 'alt'  // 'alt' = generated in alternate timeline
+}
+
+export interface ActionRecord {
+  id: string
+  year: number
+  quarter: number
+  action: string
+  narrative: string
+  events: string[]
+  statDeltas: Partial<NationStats>
+}
+
+export interface IncomingMessage {
+  id: string
+  fromId: string
+  fromName: string
+  fromFlag: string
+  text: string
+  read: boolean
+  year: number
+  quarter: number
 }
 
 export interface DiploMessage {

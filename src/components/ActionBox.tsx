@@ -3,7 +3,11 @@ import { useGameStore } from '@/store/gameStore'
 import { useUIStore } from '@/store/uiStore'
 import { executeTurn } from '@/lib/ai'
 
-export function ActionBox() {
+interface ActionBoxProps {
+  onConsequence?: (narrative: string) => void
+}
+
+export function ActionBox({ onConsequence }: ActionBoxProps) {
   const [action, setAction] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -24,9 +28,14 @@ export function ActionBox() {
     try {
       const result = await executeTurn(action)
       applyTurnResult(result, action)
+
+      // Show consequence toast
+      if (result.narrative && onConsequence) {
+        onConsequence(result.narrative)
+      }
+
       setAction('')
-      setTab('events')
-      setTimeout(() => setTab('advisor'), 200)
+      setTab('advisor')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'AI call failed')
     } finally {
@@ -77,7 +86,7 @@ export function ActionBox() {
         </div>
       </div>
       {error && (
-        <p className="text-red-500 text-xs mt-1.5">{error}</p>
+        <p className="text-destructive text-xs mt-1.5">{error}</p>
       )}
       <p className="text-[9px] text-muted-foreground mt-1">Ctrl+Enter to execute</p>
     </div>
