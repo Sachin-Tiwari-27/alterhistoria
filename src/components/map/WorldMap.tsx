@@ -5,8 +5,8 @@ import { useGameStore } from '@/store/gameStore'
 import { useDiploStore } from '@/store/diploStore'
 import { useUIStore } from '@/store/uiStore'
 import { COUNTRIES } from '@/data/countries'
-import { getCountryFill } from '@/lib/mapColors'
 import type { CountryBase } from '@/types'
+import { getCountryFill, type MapMode } from '@/lib/mapColors'
 
 interface TooltipState {
   x: number
@@ -30,13 +30,15 @@ export function WorldMap() {
   const setTab = useUIStore((s) => s.setTab)
   const setShowNationSelect = useUIStore((s) => s.setShowNationSelect)
 
+  const [mapMode, setMapMode] = useState<MapMode>('political')
+
   const oceanColor = theme === 'dark' ? '#050505' : '#f3f4f6'
 
   const getCountryFillWrapper = useCallback(
     (id: string): string => {
-      return getCountryFill(id, player, nations, occupations, theme)
+      return getCountryFill(id, player, nations, occupations, theme, mapMode)
     },
-    [player, nations, occupations, theme]
+    [player, nations, occupations, theme, mapMode]
   )
 
   // Re-colour whenever relations, occupations, or theme changes
@@ -151,6 +153,26 @@ export function WorldMap() {
 
       {/* Zoom controls */}
       <div className="absolute bottom-3 right-3 flex flex-col gap-1">
+        {/* Map Mode Toggle */}
+        <div className="flex flex-col mb-2 gap-1">
+          <button
+            onClick={() => setMapMode('political')}
+            className={`px-2 py-1.5 text-[9px] font-cinzel rounded-sm border transition-colors ${
+              mapMode === 'political' ? 'bg-primary text-primary-foreground border-primary' : 'bg-card/90 text-muted-foreground border-border hover:border-primary'
+            }`}
+          >
+            POLITICAL
+          </button>
+          <button
+            onClick={() => setMapMode('territorial')}
+            className={`px-2 py-1.5 text-[9px] font-cinzel rounded-sm border transition-colors ${
+              mapMode === 'territorial' ? 'bg-primary text-primary-foreground border-primary' : 'bg-card/90 text-muted-foreground border-border hover:border-primary'
+            }`}
+          >
+            TERRITORIAL
+          </button>
+        </div>
+
         {[{ label: '+', factor: 1.4 }, { label: '−', factor: 0.7 }, { label: '⊞', factor: 0 }].map(({ label, factor }) => (
           <button
             key={label}
@@ -163,13 +185,16 @@ export function WorldMap() {
       </div>
 
       {/* Legend */}
-      <div className="absolute bottom-3 left-3 bg-card border border-border rounded-sm px-3 py-2 text-[10px] font-cinzel tracking-wide pointer-events-none">
+      <div className="absolute bottom-3 left-3 bg-card/95 backdrop-blur-sm border border-border rounded-sm px-3 py-2 text-[10px] font-cinzel tracking-wide pointer-events-none shadow-2xl">
+        <div className="text-[8px] text-muted-foreground mb-2 pb-1 border-b border-border/50 uppercase tracking-widest">{mapMode} VIEW</div>
         {[
-          { color: theme === 'dark' ? '#d4a843' : '#b48833', label: 'Your nation' },
-          { color: theme === 'dark' ? '#166534' : '#22c55e', label: 'Ally' },
-          { color: theme === 'dark' ? '#991b1b' : '#ef4444', label: 'Rival' },
-          { color: theme === 'dark' ? '#27272a' : '#52525b', label: 'Occupied' },
-          { color: theme === 'dark' ? '#0a0a0a' : '#ffffff', label: 'Neutral', border: theme === 'dark' ? '#27272a' : '#e5e7eb' },
+          { color: theme === 'dark' ? '#d4a843' : '#b48833', label: 'You / Controlled' },
+          ...(mapMode === 'political' ? [
+            { color: theme === 'dark' ? '#166534' : '#22c55e', label: 'Ally / Allied Colony' },
+            { color: theme === 'dark' ? '#991b1b' : '#ef4444', label: 'Rival / Rival Colony' },
+          ] : []),
+          { color: theme === 'dark' ? '#27272a' : '#d4d4d8', label: 'Occupied/Colony' },
+          { color: theme === 'dark' ? '#1a1a1a' : '#f5f5f5', label: 'Neutral', border: theme === 'dark' ? '#333' : '#ddd' },
         ].map(({ color, label, border }) => (
           <div key={label} className="flex items-center gap-2 mb-1 last:mb-0">
             <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: color, border: border ? `1px solid ${border}` : undefined }} />

@@ -1,17 +1,14 @@
 import { X, SkipForward, ArrowLeft, Zap } from 'lucide-react'
 import { useGameStore } from '@/store/gameStore'
 import { useUIStore } from '@/store/uiStore'
-import { uid } from '@/lib/utils'
 
 export function TimeJumpModal() {
   const year = useGameStore((s) => s.year)
-  const addEvent = useGameStore((s) => s.addEvent)
+  const jumpToYear = useGameStore((s) => s.jumpToYear)
 
   const modalYear = useUIStore((s) => s.timeJumpModalYear)
   const modalResult = useUIStore((s) => s.timeJumpModalResult)
   const closeTimeJumpModal = useUIStore((s) => s.closeTimeJumpModal)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _uid = uid // prevent unused warn
 
   const jumpYears = modalYear - year
 
@@ -22,8 +19,9 @@ export function TimeJumpModal() {
     .filter(Boolean)
 
   const handleContinue = () => {
-    // Seed a few generated events into the event feed and close
-    addEvent(`Your alternate timeline reaches ${modalYear}. History has been irrevocably changed.`, 'world')
+    jumpToYear(modalYear, [
+      { text: `Your alternate timeline reaches ${modalYear}. History has been irrevocably changed.`, type: 'world' }
+    ])
     closeTimeJumpModal()
   }
 

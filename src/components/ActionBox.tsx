@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { useGameStore } from '@/store/gameStore'
 import { useUIStore } from '@/store/uiStore'
-import { executeTurn } from '@/lib/ai'
+import { executeTurn, generateIncomingDiplo } from '@/lib/ai'
+import { useDiploStore } from '@/store/diploStore'
+import { COUNTRIES } from '@/data/countries'
 
 interface ActionBoxProps {
   onConsequence?: (narrative: string) => void
@@ -29,6 +31,27 @@ export function ActionBox({ onConsequence }: ActionBoxProps) {
       const result = await executeTurn(action)
       applyTurnResult(result, action)
 
+      // 30% chance for incoming diplomacy message
+      if (Math.random() < 0.3) {
+        const potentialNations = Object.keys(COUNTRIES).filter(id => id !== player.id)
+        const triggerId = potentialNations[Math.floor(Math.random() * potentialNations.length)]
+        const nationData = COUNTRIES[triggerId]
+        
+        generateIncomingDiplo(triggerId, action).then(text => {
+          if (text) {
+            useDiploStore.getState().addIncoming({
+              fromId: triggerId,
+              fromName: nationData.name,
+              fromFlag: nationData.flag,
+              text,
+              read: false,
+              year,
+              quarter
+            })
+          }
+        })
+      }
+
       // Show consequence toast
       if (result.narrative && onConsequence) {
         onConsequence(result.narrative)
@@ -50,7 +73,8 @@ export function ActionBox({ onConsequence }: ActionBoxProps) {
     }
   }
 
-  const budget = player ? Math.floor((player.gdp * 0.25) + (player.trade * 0.15)) : 0
+  const reserve = player ? Math.floor(player.treasury) : 0
+  const revenue = player ? Math.floor((player.gdp * 0.05) + (player.trade * 0.03)) : 0
   const talent = player ? Math.floor(player.hdi * 1.2) : 0
 
   if (!player) return null
@@ -63,7 +87,10 @@ export function ActionBox({ onConsequence }: ActionBoxProps) {
         </label>
         <div className="flex gap-3">
           <span className="text-[9px] font-mono-game text-amber-500 whitespace-nowrap">
-            BUDGET: ₤{budget}B
+            RESERVE: ₤{reserve}B
+          </span>
+          <span className="text-[9px] font-mono-game text-green-500 whitespace-nowrap">
+            REVENUE: +₤{revenue}B
           </span>
           <span className="text-[9px] font-mono-game text-sky-500 whitespace-nowrap">
             TALENT: {talent}

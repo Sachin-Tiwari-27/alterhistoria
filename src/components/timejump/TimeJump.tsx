@@ -96,7 +96,7 @@ export function TimeJump() {
         </div>
 
         {/* Slider */}
-        <div className="space-y-1">
+        <div className="space-y-2 py-2">
           <input
             type="range"
             min={minYear}
@@ -104,11 +104,15 @@ export function TimeJump() {
             step={1}
             value={clampedTarget}
             onChange={(e) => setTargetYear(Number(e.target.value))}
-            className="w-full accent-primary cursor-pointer"
+            className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
           />
-          <div className="flex justify-between text-[9px] font-mono-game text-muted-foreground">
+          <div className="flex justify-between text-[9px] font-mono-game text-muted-foreground/60 uppercase tracking-tighter">
             <span>{minYear}</span>
-            <span>1950</span>
+            <span className="opacity-30">|</span>
+            <span>1940</span>
+            <span className="opacity-30">|</span>
+            <span>1960</span>
+            <span className="opacity-30">|</span>
             <span>1980</span>
           </div>
         </div>

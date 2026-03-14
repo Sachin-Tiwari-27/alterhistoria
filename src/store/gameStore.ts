@@ -47,11 +47,12 @@ interface GameState {
   getPlayerDisplayName: () => string
   getPlayerPolityLabel: () => string
   resetGame: () => void
+  jumpToYear: (targetYear: number, seedEvents: Array<{ text: string; type: WorldEvent['type'] }>) => void
 }
 
 const STAT_KEYS: (keyof NationStats)[] = [
   'gdp', 'hdi', 'freedom', 'democracy', 'population',
-  'military', 'trade', 'stability', 'tech'
+  'military', 'trade', 'stability', 'tech', 'treasury'
 ]
 
 export const useGameStore = create<GameState>()(
@@ -100,39 +101,78 @@ export const useGameStore = create<GameState>()(
         if (!s.player) return
 
         // Apply stat changes with HDI scaling
-        const hdiEff = clamp(s.player.hdi / 50, 0.5, 2.0) // 50 is normal. <50 = penalty, >50 = bonus.
+        const hdiEff = clamp(s.player.hdi / 50, 0.5, 2.0)
 
         STAT_KEYS.forEach(k => {
-          let delta = (result.statChanges as Record<string, number>)[k]
-          if (delta !== undefined && delta !== 0) {
-            // HDI impacts tech and gdp progress specifically
-            if (k === 'tech' || k === 'gdp') delta *= hdiEff
+          let delta = (result.statChanges as Record<string, number>)[k] || 0
+          
+          // Budget handling: if AI returns a budgetCost, deduct it
+          if (k === 'treasury' && result.budgetCost) {
+            delta -= result.budgetCost
+          }
 
-            const max = k === 'population' ? 5000 : 100
-            const p = s.player as unknown as Record<string, number>
-            p[k] = clamp(p[k] + delta, 0, max)
+          if (delta !== 0) {
+            if (k === 'tech' || k === 'gdp') delta *= hdiEff
+            const max = k === 'population' ? 5000 : k === 'treasury' ? 99999 : 100
+            const p = s.player as any
+            p[k] = clamp((p[k] || 0) + delta, 0, max)
           }
         })
+
+        // Organic quarterly revenue for player
+        const revenue = Math.floor((s.player.gdp * 0.05) + (s.player.trade * 0.03))
+        s.player.treasury += revenue
+
+        // Stat Transfers (Colonial Independence / Partition)
+        if (result.transfers) {
+          result.transfers.forEach(t => {
+            const from = s.nations[t.fromId]
+            const to = s.nations[t.toId]
+            if (from && to) {
+              STAT_KEYS.forEach(k => {
+                const val = (t.stats as Record<string, number>)[k]
+                if (val) {
+                  const fromAny = from as any
+                  const toAny = to as any
+                  fromAny[k] = clamp(fromAny[k] - val, 0, 99999)
+                  toAny[k] = clamp(toAny[k] + val, 0, 99999)
+                }
+              })
+            }
+          })
+        }
 
         // Sync player to global nations for rankings
         if (s.nations[s.player.id]) {
           Object.assign(s.nations[s.player.id], s.player)
         }
 
-        // AI Nation Drift (random geopolitical shifts in other countries)
-        if (s.turn % 2 === 0) {
-          Object.keys(s.nations).forEach(id => {
-            if (id === s.player!.id) return
-            const keys = [...STAT_KEYS].sort(() => Math.random() - 0.5).slice(0, 2)
+        // Global Growth Engine + AI Nation Drift
+        Object.keys(s.nations).forEach(id => {
+          const n = s.nations[id]
+          if (!n) return
+
+          // 1. Organic Quarterly Growth (all nations)
+          if (n.stability > 30) {
+            n.gdp = clamp(n.gdp * (1 + (Math.random() * 0.008)), 1, 1000)
+            n.tech = clamp(n.tech + (Math.random() * 0.2), 0, 100)
+            n.treasury += Math.floor((n.gdp * 0.05) + (n.trade * 0.03))
+          } else {
+            // Instability penalty
+            n.gdp = clamp(n.gdp * (0.98 + (Math.random() * 0.01)), 1, 1000)
+            n.stability = clamp(n.stability - (Math.random() * 2), 0, 100)
+          }
+
+          // 2. Drift (random events/internal shifts every 2 turns)
+          if (s.turn % 2 === 0 && id !== s.player!.id) {
+            const keys = [...STAT_KEYS].filter(k => k !== 'treasury').sort(() => Math.random() - 0.5).slice(0, 2)
             keys.forEach(k => {
-              const drift = (Math.random() * 3 - 1.5) // -1.5 to +1.5
-              const val = (s.nations[id] as any)[k] as number
-              if (val !== undefined) {
-                (s.nations[id] as any)[k] = clamp(val + drift, 5, 100)
-              }
+              const drift = (Math.random() * 2 - 1)
+              const nAny = n as any
+              nAny[k] = clamp(nAny[k] + drift, 5, 100)
             })
-          })
-        }
+          }
+        })
 
         // Relations
         result.newFriends.forEach(id => {
@@ -223,6 +263,23 @@ export const useGameStore = create<GameState>()(
         s.year = 1920; s.quarter = 1; s.turn = 1; s.divergence = 0
         s.actions = []; s.actionHistory = []; s.events = []; s.draftAction = ''
         s.occupations = { ...HISTORICAL_OCCUPATIONS_1920 }
+      }),
+
+      jumpToYear: (targetYear: number, seedEvents: Array<{ text: string; type: WorldEvent['type'] }>) => set(s => {
+        s.year = targetYear
+        s.quarter = 1
+        s.turn += 1
+        seedEvents.forEach((e: { text: string; type: WorldEvent['type'] }) => {
+          s.events.unshift({
+            id: uid(),
+            year: targetYear,
+            quarter: 1,
+            text: e.text,
+            type: e.type,
+            source: 'alt'
+          })
+        })
+        s.ticker = `◆ TIME JUMPED TO ${targetYear}. The timeline continues...`
       }),
     })),
     {

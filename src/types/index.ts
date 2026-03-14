@@ -17,6 +17,7 @@ export interface NationStats {
   trade: number
   stability: number
   tech: number
+  treasury: number // Persistent budget/wealth
 }
 
 export interface CountryBase extends NationStats {
@@ -30,6 +31,7 @@ export interface CountryBase extends NationStats {
   friends: string[]
   foes: string[]
   context: string
+  budgetMultiplier: number // Historical economic power factor (1.0 = base)
 }
 
 export interface PlayerNation extends CountryBase {
@@ -104,6 +106,8 @@ export interface TurnResult {
   liberations: string[]
   divergenceDelta: number
   ticker: string
+  transfers?: Array<{ fromId: string; toId: string; stats: Partial<NationStats> }>
+  budgetCost?: number
 }
 
 export const POLITY_LABELS: Record<Polity, { label: string; description: string }> = {

@@ -2,12 +2,15 @@ import * as d3 from 'd3'
 import type { PlayerNation, CountryBase } from '@/types'
 import { COUNTRIES } from '@/data/countries'
 
+export type MapMode = 'political' | 'territorial'
+
 export function getCountryFill(
   id: string,
   player: PlayerNation | null,
-  _nations: Record<string, CountryBase>,
+  nations: Record<string, CountryBase>,
   occupations: Record<string, string>,
-  theme: 'dark' | 'light'
+  theme: 'dark' | 'light',
+  mode: MapMode = 'political'
 ): string {
   // If no player has been selected, use base colors but handle 1920s occupations
   const occupierId = occupations[id]
@@ -29,29 +32,52 @@ export function getCountryFill(
   }
 
   // 1. Homelands (Player)
-  if (id === player?.id || effectiveId === player?.id) {
+  const isPlayerControlled = id === player?.id || effectiveId === player?.id
+  if (isPlayerControlled) {
     return player.customColor ?? player.color ?? (theme === 'dark' ? '#d4a843' : '#b48833')
   }
 
-  // 2. Occupied (if not self/ally/foe)
-  if (occupierId && occupierId !== id) {
-    return theme === 'dark' ? '#27272a' : '#52525b' // Dark grey for occupied
+  // 2. Occupied (Show occupier's color in Political mode, or gray in Territorial)
+  const isOccupied = occupierId && occupierId !== id
+  if (isOccupied) {
+    if (mode === 'political') {
+      const occupier = nations[occupierId] ?? COUNTRIES[occupierId]
+      if (occupier) {
+        // If occupier is player, use player gold
+        if (occupierId === player?.id) return player.customColor ?? player.color ?? (theme === 'dark' ? '#d4a843' : '#b48833')
+        // If occupier is friend, use green
+        if (player?.friends.includes(occupierId)) return theme === 'dark' ? '#064e3b' : '#34d399'
+        // If occupier is foe, use red
+        if (player?.foes.includes(occupierId)) return theme === 'dark' ? '#7f1d1d' : '#f87171'
+        
+        // General occupier (grayish version of their color)
+        const d3c = d3.hsl(occupier.color)
+        d3c.s *= 0.4
+        d3c.l = theme === 'dark' ? 0.2 : 0.8
+        return d3c.formatHex()
+      }
+    }
+    return theme === 'dark' ? '#27272a' : '#d4d4d8' // Subtle gray for occupied in territorial mode
   }
 
-  // 3. Relations
-  if (player.friends.includes(effectiveId)) return theme === 'dark' ? '#166534' : '#22c55e'
-  if (player.foes.includes(effectiveId))    return theme === 'dark' ? '#991b1b' : '#ef4444'
+  // 3. Relations (Political mode only)
+  if (mode === 'political' && player) {
+    if (player.friends.includes(effectiveId)) return theme === 'dark' ? '#166534' : '#22c55e'
+    if (player.foes.includes(effectiveId))    return theme === 'dark' ? '#991b1b' : '#ef4444'
+  }
   
-  // 4. Neutral (faint base color)
-  const c = COUNTRIES[effectiveId]
-  if (!c) return theme === 'dark' ? '#0a0a0a' : '#ffffff'
+  // 4. Neutral / Base
+  const c = nations[effectiveId] ?? COUNTRIES[effectiveId]
+  if (!c) return theme === 'dark' ? '#0a0a0a' : '#f5f5f5'
+  
   const d3c = d3.hsl(c.color)
   if (theme === 'dark') {
-    d3c.l = 0.08
-    d3c.s *= 0.3
+    d3c.l = 0.12
+    d3c.s *= 0.4
   } else {
-    d3c.l = 0.95
-    d3c.s *= 0.3
+    // Parchment / Paper effect for light mode
+    d3c.l = 0.92
+    d3c.s *= 0.2
   }
   return d3c.formatHex()
 }

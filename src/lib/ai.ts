@@ -1,5 +1,6 @@
 import { useGameStore } from "@/store/gameStore";
 import type { PlayerNation, TurnResult } from "@/types";
+import { COUNTRIES } from "@/data/countries";
 
 export interface AIMessage {
   role: "user" | "assistant";
@@ -92,7 +93,8 @@ export function buildTurnSystemPrompt(): string {
       .map((a) => `${a.year}Q${a.quarter}: ${a.action}`)
       .join(" | ") || "none";
 
-    const budget = Math.floor((player.gdp * 0.25) + (player.trade * 0.15))
+  const reserve = Math.floor(player.treasury)
+  const revenue = Math.floor((player.gdp * 0.05) + (player.trade * 0.03))
   const talent = Math.floor(player.hdi * 1.2)
 
   return `You are the narrator-engine of Alter Historia, an alternate history grand strategy game starting in 1920.
@@ -101,32 +103,33 @@ ${buildNationIdentity(player)}
 
 YEAR: ${year} Q${quarter}
 STATS: GDP:${player.gdp} HDI:${player.hdi} Military:${player.military} Stability:${player.stability} Tech:${player.tech} Freedom:${player.freedom} Democracy:${player.democracy} Trade:${player.trade} Population:${player.population}M
-CONSTRAINTS: Current Budget: ₤${budget}B | Talent Pool (HDI): ${talent}
+CONSTRAINTS: Treasure Reserve: ₤${reserve}B | Quarterly Net Revenue: ₤${revenue}B | Talent Pool (HDI): ${talent}
 ALLIES: ${friendNames}
 RIVALS: ${foeNames}
 DIVERGENCE FROM REAL HISTORY: ${divergence} pts
 RECENT PLAYER ACTIONS: ${recentActions}
 
 Rules:
-- BUDGET: Expensive decrees (war, major industrialization, massive social programs) cost budget. If the player's budget is low, simulate financial strain, debt, or underfunded failures in your narrative.
+- TREASURY & BUDGET: Expensive decrees (war, major industrialization, massive social programs) should return a "budgetCost". If the player's reserve is low, simulate financial strain, debt, or underfunded failures in your narrative.
 - TALENT (HDI): High HDI acts as a multiplier for Tech and GDP progress. Low HDI (under 40) triggers "talent drain" or "brain drain" crises and makes complex reforms slower or more unstable.
+- INDEPENDENCE & PARTITION: If a colony or territory gains independence from its colonizer (e.g. India from UK), use the "transfers" field to move GDP and Population from the parent nation to the new one. This fundamentally weakens the colonizer.
 - The player's custom name, polity, flag, and identity ALWAYS override the historical defaults. Never use the original nation name if a custom one is set.
 - Simulate realistic but DRAMATIC alternate history consequences. Do not just maintain the status quo. Be bold and imaginative.
 - Consider how neighbouring nations react, cascading geopolitical shocks, and what unintended consequences occur.
-- Higher divergence = more alternate timeline freedom, wildcard events, and radical shifts in your narrative.
-- Ensure narrative sentences are vivid, specific, and impactful.
 - Return ONLY valid JSON — no markdown fences, no preamble, no trailing text.
 
 JSON schema:
 {
   "narrative": "3-4 vivid, specific sentences describing consequences",
-  "statChanges": {"gdp":0,"hdi":0,"military":0,"stability":0,"tech":0,"freedom":0,"democracy":0,"trade":0,"population":0},
+  "statChanges": {"gdp":0,"hdi":0,"military":0,"stability":0,"tech":0,"freedom":0,"democracy":0,"trade":0,"population":0, "treasury": 0},
   "worldEvents": [{"text":"event description","type":"world|diplomatic|military|economic|social"}],
   "newFriends": [],
   "newFoes": [],
   "removeFoes": [],
   "occupations": {}, 
   "liberations": [],
+  "transfers": [{"fromId": "parentNationId", "toId": "newNationId", "stats": {"gdp": 20, "population": 50}}],
+  "budgetCost": 15,
   "divergenceDelta": 10,
   "ticker": "Short punchy news headline under 12 words"
 }
@@ -167,6 +170,8 @@ export async function executeTurn(action: string): Promise<TurnResult> {
     removeFoes: parsed.removeFoes ?? [],
     occupations: parsed.occupations ?? {},
     liberations: parsed.liberations ?? [],
+    transfers: parsed.transfers ?? [],
+    budgetCost: parsed.budgetCost ?? 0,
     divergenceDelta: parsed.divergenceDelta ?? 10,
     ticker: parsed.ticker ?? "",
   };
@@ -274,4 +279,42 @@ Projecting from ${year} to ${targetYear}.
 Real historical events that occurred between these years: ${milestones}
 
 Write a 5-paragraph vivid alternate history narrative describing what ${playerName} and the world look like in ${targetYear}. Be highly creative and bold — name specific events, brilliant or disastrous leaders, and dramatic consequences. Show: (1) How the player's choices radically changed historical outcomes, (2) What the nation looks like now (its triumphs and struggles), (3) How the wider world has diverged into a deeply altered state, (4) What new, surprising alliances and conflicts define the era, (5) What the near future holds in this timeline. Reference the player's custom identity throughout.`;
+}
+
+export async function generateAltEvents(): Promise<Array<{ text: string; type: string }>> {
+  const { player, year, divergence, nations } = useGameStore.getState();
+  if (!player) return [];
+
+  const system = `You are the alternate history engine. Based on the current state, generate 3-5 plausible but interesting world events for the current year.
+  
+  YEAR: ${year}
+  NATION: ${player.customName ?? player.name}
+  DIVERGENCE: ${divergence} pts
+  ALLIES: ${player.friends.map(id => nations[id]?.name ?? id).join(', ')}
+  RIVALS: ${player.foes.map(id => nations[id]?.name ?? id).join(', ')}
+  
+  Return a JSON array: [{"text": "...", "type": "world|military|diplomatic|social|economic"}]`;
+
+  try {
+    const raw = await callAI(system, [{ role: 'user', content: 'Generate events.' }], 600);
+    const match = raw.match(/\[[\s\S]*\]/);
+    return match ? JSON.parse(match[0]) : [];
+  } catch { return []; }
+}
+
+export async function generateIncomingDiplo(triggerId: string, playerAction: string): Promise<string> {
+  const { player, nations } = useGameStore.getState();
+  if (!player) return "";
+  const target = nations[triggerId] ?? COUNTRIES[triggerId];
+  if (!target) return "";
+
+  const system = buildDiplomacySystemPrompt(triggerId, target.name, target.context, false, []);
+  
+  try {
+    return await callAI(
+      system,
+      [{ role: 'user', content: `React to the player's recent action: "${playerAction}". You are reaching out to them via a diplomatic dispatch.` }],
+      500
+    );
+  } catch { return ""; }
 }

@@ -71,7 +71,8 @@ export function StatsPanel() {
   const capital = player.customCapital ?? player.capital
 
   // Derived stats
-  const budget = Math.floor((player.gdp * 0.25) + (player.trade * 0.15))
+  const reserve = Math.floor(player.treasury)
+  const revenue = Math.floor((player.gdp * 0.05) + (player.trade * 0.03))
   const talentPool = Math.floor(player.hdi * 1.2)
 
   return (
@@ -105,12 +106,14 @@ export function StatsPanel() {
         </p>
         <div className="mb-4 grid grid-cols-2 gap-2">
           <div className="bg-muted/50 p-2 rounded-sm border border-border/50">
-            <div className="text-[8px] font-cinzel text-muted-foreground uppercase mb-1">Budget</div>
-            <div className="text-sm font-mono-game text-amber-500 font-bold">₤{budget}B</div>
+            <div className="text-[8px] font-cinzel text-muted-foreground uppercase mb-1">Reserve</div>
+            <div className="text-sm font-mono-game text-amber-500 font-bold">₤{reserve}B</div>
+            <div className="text-[7px] text-green-500 font-mono-game mt-0.5">+{revenue}B Net</div>
           </div>
           <div className="bg-muted/50 p-2 rounded-sm border border-border/50">
             <div className="text-[8px] font-cinzel text-muted-foreground uppercase mb-1">Talent</div>
             <div className="text-sm font-mono-game text-sky-500 font-bold">{talentPool}</div>
+            <div className="text-[7px] text-muted-foreground font-mono-game mt-0.5">{player.hdi >= 50 ? 'Efficiency +' : 'Efficiency -'}</div>
           </div>
         </div>
           {STAT_CONFIG.slice(0, 2).map((s) => (

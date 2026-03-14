@@ -11,6 +11,7 @@ type SortDir = 'asc' | 'desc'
 const REGIONS: Region[] = ['Europe', 'Asia', 'Americas', 'Africa', 'Oceania']
 
 const STAT_COLS: { key: keyof NationStats; label: string; short: string }[] = [
+  { key: 'treasury',   label: 'Reserve',    short: 'RES'  },
   { key: 'gdp',        label: 'GDP',        short: 'GDP'  },
   { key: 'military',   label: 'Military',   short: 'MIL'  },
   { key: 'stability',  label: 'Stability',  short: 'STB'  },
@@ -22,7 +23,8 @@ const STAT_COLS: { key: keyof NationStats; label: string; short: string }[] = [
 ]
 
 function totalScore(n: NationStats) {
-  return n.gdp + n.military + n.stability + n.tech + n.trade + n.hdi + n.freedom + n.democracy
+  // Treasury is weighted less in total score to prevent hyper-hoarding balance issues
+  return n.gdp + n.military + n.stability + n.tech + n.trade + n.hdi + n.freedom + n.democracy + Math.floor(n.treasury / 10)
 }
 
 export function WorldRankingsModal() {
@@ -58,7 +60,8 @@ export function WorldRankingsModal() {
           hdi: live.hdi,
           freedom: live.freedom,
           democracy: live.democracy,
-          population: live.population
+          population: live.population,
+          treasury: live.treasury
         } : {}),
       }
     })
