@@ -2,48 +2,106 @@
 @tailwind components;
 @tailwind utilities;
 
-@import "@fontsource/cinzel/400.css";
-@import "@fontsource/cinzel/600.css";
-@import "@fontsource/eb-garamond/400.css";
-@import "@fontsource/eb-garamond/400-italic.css";
-
 @layer base {
   :root {
-    /* LIGHT MODE — aged parchment */
-    --background: 42 38% 94%;
-    --foreground: 32 40% 12%;
-    --card: 42 35% 90%;
-    --card-foreground: 32 40% 12%;
-    --border: 35 30% 72%;
-    --input: 42 30% 88%;
-    --primary: 38 65% 44%; /* gold */
-    --primary-foreground: 32 40% 10%;
-    --muted: 40 20% 84%;
-    --muted-foreground: 32 25% 42%;
-    --accent: 38 55% 50%;
-    --accent-foreground: 32 40% 10%;
+    /* LIGHT — clean black & white */
+    --background:             0 0% 98%;
+    --foreground:             0 0% 10%;
+    --card:                   0 0% 100%;
+    --card-foreground:        0 0% 10%;
+    --border:                 0 0% 90%;
+    --input:                  0 0% 96%;
+    --ring:                   0 0% 10%;
+    --primary:                0 0% 10%;
+    --primary-foreground:     0 0% 100%;
+    --secondary:              0 0% 94%;
+    --secondary-foreground:   0 0% 10%;
+    --muted:                  0 0% 94%;
+    --muted-foreground:       0 0% 40%;
+    --accent:                 0 0% 94%;
+    --accent-foreground:      0 0% 10%;
+    --destructive:            0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --radius:                 0.15rem;
+
+    --map-ocean:   #f3f4f6;
+    --map-land:    #ffffff;
+    --map-border:  #e5e7eb;
+    --panel-bg:    hsl(0 0% 100%);
   }
 
   .dark {
-    /* DARK MODE — imperial midnight */
-    --background: 28 40% 5%;
-    --foreground: 40 35% 72%;
-    --card: 28 35% 8%;
-    --card-foreground: 40 35% 72%;
-    --border: 32 25% 20%;
-    --input: 28 30% 10%;
-    --primary: 38 65% 55%; /* gold */
-    --primary-foreground: 28 40% 5%;
-    --muted: 28 25% 12%;
-    --muted-foreground: 35 20% 48%;
-    --accent: 38 55% 48%;
-    --accent-foreground: 28 40% 5%;
+    /* DARK — pure black */
+    --background:             0 0% 0%;
+    --foreground:             0 0% 96%;
+    --card:                   0 0% 3%;
+    --card-foreground:        0 0% 96%;
+    --border:                 0 0% 15%;
+    --input:                  0 0% 8%;
+    --ring:                   0 0% 96%;
+    --primary:                0 0% 96%;
+    --primary-foreground:     0 0% 0%;
+    --secondary:              0 0% 15%;
+    --secondary-foreground:   0 0% 96%;
+    --muted:                  0 0% 12%;
+    --muted-foreground:       0 0% 60%;
+    --accent:                 0 0% 15%;
+    --accent-foreground:      0 0% 96%;
+    --destructive:            0 62% 35%;
+    --destructive-foreground: 0 0% 98%;
+    --radius:                 0.15rem;
+
+    --map-ocean:   #050505;
+    --map-land:    #121212;
+    --map-border:  #27272a;
+    --panel-bg:    hsl(0 0% 3%);
   }
 
-  * {
-    @apply border-border;
+  * { @apply border-border; box-sizing: border-box; }
+  body { @apply bg-background text-foreground; margin: 0; overflow: hidden; }
+
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: hsl(var(--muted)); }
+  ::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: hsl(var(--primary)); }
+}
+
+@layer utilities {
+  .font-cinzel  { font-family: 'Cinzel', serif; }
+  .font-garamond { font-family: 'EB Garamond', Georgia, serif; }
+  .font-mono-game { font-family: 'Share Tech Mono', monospace; }
+
+  .ticker-scroll {
+    white-space: nowrap;
+    animation: ticker-move 50s linear infinite;
   }
-  body {
-    @apply bg-background text-foreground;
+  @keyframes ticker-move {
+    0%   { transform: translateX(100vw); }
+    100% { transform: translateX(-200%); }
+  }
+
+  .thinking span {
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: hsl(var(--primary));
+    opacity: 0;
+    animation: think 1.2s infinite;
+  }
+  .thinking span:nth-child(2) { animation-delay: 0.2s; }
+  .thinking span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes think {
+    0%, 100% { opacity: 0; }
+    50%       { opacity: 1; }
+  }
+
+  .stat-bar-fill { transition: width 0.7s ease; }
+
+  .nation-pulse {
+    animation: nation-glow 2.5s ease-in-out infinite;
+  }
+  @keyframes nation-glow {
+    0%, 100% { opacity: 0.8; }
+    50%       { opacity: 0.3; }
   }
 }

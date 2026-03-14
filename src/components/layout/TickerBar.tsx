@@ -1,8 +1,7 @@
-import { useUIStore } from "@/store/uiStore";
-import { useGameStore } from "@/store/gameStore";
+import { useGameStore } from '@/store/gameStore'
 
 export function TickerBar() {
-  const ticker = useGameStore((s) => s.ticker);
+  const ticker = useGameStore((s) => s.ticker)
 
   return (
     <div className="h-7 flex items-center bg-background border-b border-border flex-shrink-0 overflow-hidden">
@@ -20,5 +19,5 @@ export function TickerBar() {
         </span>
       </div>
     </div>
-  );
+  )
 }

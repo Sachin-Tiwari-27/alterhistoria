@@ -1,118 +1,116 @@
-import { useGameStore } from "@/store/gameStore";
+import { useState, useCallback } from 'react'
+import {
+  callAI,
+  executeTurn,
+  buildAdvisorSystemPrompt,
+  buildDiplomacySystemPrompt,
+  buildTimeJumpSystemPrompt,
+} from '@/lib/ai'
+import type { AIMessage } from '@/lib/ai'
+import type { TurnResult } from '@/types'
 
-interface AIMessage {
-  role: "user" | "assistant" | "system";
-  content: string;
+// ─── Turn execution ──────────────────────────────────────────────────────────
+
+export function useTurn() {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const execute = useCallback(async (action: string): Promise<TurnResult | null> => {
+    setLoading(true)
+    setError(null)
+    try {
+      const result = await executeTurn(action)
+      return result
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unknown error')
+      return null
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  return { execute, loading, error }
 }
 
-export async function callAI(
-  system: string,
-  messages: AIMessage[],
-  maxTokens = 800,
-): Promise<string> {
-  const apiKey = useGameStore.getState().apiKey;
+// ─── Advisor chat ────────────────────────────────────────────────────────────
 
-  if (apiKey) {
-    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-        "HTTP-Referer": "https://alterhistoria.game",
-        "X-Title": "Alter Historia",
-      },
-      body: JSON.stringify({
-        model: "deepseek/deepseek-r1:free",
-        max_tokens: maxTokens,
-        messages: [{ role: "system", content: system }, ...messages],
-      }),
-    });
-    const data = await res.json();
-    if (data.error) throw new Error(data.error.message);
-    return data.choices?.[0]?.message?.content ?? "";
-  }
+export function useAdvisor() {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  // Fallback: Anthropic built-in (works inside Claude.ai)
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: maxTokens,
-      system,
-      messages,
-    }),
-  });
-  const data = await res.json();
-  return data.content?.[0]?.text ?? "";
+  const ask = useCallback(async (history: AIMessage[]): Promise<string | null> => {
+    setLoading(true)
+    setError(null)
+    try {
+      const system = buildAdvisorSystemPrompt()
+      const reply = await callAI(system, history, 500)
+      return reply
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unknown error')
+      return null
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  return { ask, loading, error }
 }
 
-// Build turn prompt from game state
-export function buildTurnSystemPrompt(): string {
-  const { player, year, quarter, divergence, actions } =
-    useGameStore.getState();
-  if (!player) return "";
+// ─── Diplomacy ───────────────────────────────────────────────────────────────
 
-  const displayName = player.customName || player.name;
-  const polity = player.customPolity || player.polity;
-  const capital = player.customCapital || player.capital;
+export function useDiplomacy() {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  return `You are the narrator-engine of Alter Historia, an alternate history grand strategy game.
+  const send = useCallback(async (
+    targetId: string,
+    targetName: string,
+    targetContext: string,
+    history: AIMessage[],
+    isGroup = false,
+    groupMemberNames: string[] = []
+  ): Promise<string | null> => {
+    setLoading(true)
+    setError(null)
+    try {
+      const system = buildDiplomacySystemPrompt(targetId, targetName, targetContext, isGroup, groupMemberNames)
+      const reply = await callAI(system, history, 400)
+      return reply
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unknown error')
+      return null
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
-NATION: ${displayName} (${polity}, capital: ${capital})
-YEAR: ${year} Q${quarter}
-STATS: GDP:${player.gdp} HDI:${player.hdi} Military:${player.military} Stability:${player.stability} Tech:${player.tech} Freedom:${player.freedom} Democracy:${player.democracy} Trade:${player.trade} Population:${player.population}M
-FRIENDS: ${player.friends.join(", ") || "none"}
-FOES: ${player.foes.join(", ") || "none"}
-DIVERGENCE: ${divergence} pts from real history
-LORE SO FAR: ${player.lore.slice(-3).join(" | ")}
-RECENT ACTIONS: ${actions
-    .slice(-4)
-    .map((a) => `${a.year}Q${a.q}: ${a.action}`)
-    .join(" | ")}
-
-The player's nation may have a custom name, polity, or identity that differs from its real historical counterpart. Honour these changes in all narrative.
-
-Respond ONLY with valid JSON matching the TurnResult schema:
-{
-  "narrative": "3-4 vivid sentences",
-  "statChanges": {"gdp":0,"hdi":0,"military":0,"stability":0,"tech":0,"freedom":0,"democracy":0,"trade":0,"population":0},
-  "worldEvents": [{"year":${year},"quarter":${quarter},"text":"...","type":"world|diplomatic|military|economic|social"}],
-  "newFriends": [],
-  "newFoes": [],
-  "removeFoes": [],
-  "divergenceDelta": 10,
-  "ticker": "Short punchy headline"
-}`;
+  return { send, loading, error }
 }
 
-export function buildAdvisorSystemPrompt(): string {
-  const { player, year, divergence } = useGameStore.getState();
-  if (!player) return "";
-  const displayName = player.customName || player.name;
-  const polity = player.customPolity || player.polity;
-  return `You are the Chief Advisor to the leader of ${displayName}, a ${polity}. Year: ${year}. Divergence from real history: ${divergence} pts. Nation lore: ${player.lore.slice(-2).join(" ")}. Give direct, strategic counsel in under 160 words. Honour the player's chosen national identity at all times.`;
-}
+// ─── Time Jump ───────────────────────────────────────────────────────────────
 
-export function buildDiplomacySystemPrompt(
-  targetId: string,
-  targetName: string,
-  targetContext: string,
-  isGroup: boolean,
-  groupMembers: string[],
-): string {
-  const { player, year, divergence } = useGameStore.getState();
-  if (!player) return "";
-  const displayName = player.customName || player.name;
-  const rel = player.foes.includes(targetId)
-    ? "hostile"
-    : player.friends.includes(targetId)
-      ? "friendly"
-      : "neutral";
+export function useTimeJump() {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const groupNote = isGroup
-    ? `This is a multilateral summit also including: ${groupMembers.join(", ")}. Address all parties.`
-    : "";
+  const simulate = useCallback(async (targetYear: number, milestones: string): Promise<string | null> => {
+    setLoading(true)
+    setError(null)
+    try {
+      const system = buildTimeJumpSystemPrompt(targetYear, milestones)
+      const reply = await callAI(
+        system,
+        [{ role: 'user', content: `Simulate the alternate timeline narrative to ${targetYear}.` }],
+        1200
+      )
+      return reply
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unknown error')
+      return null
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
-  return `You are the head of government of ${targetName} in ${year}. You are in diplomatic contact with ${displayName}. Your relationship: ${rel}. Context: ${targetContext}. Divergence: ${divergence} pts. ${groupNote} Stay in character as a 1920s statesman. Max 120 words.`;
+  return { simulate, loading, error }
 }

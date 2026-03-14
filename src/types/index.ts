@@ -1,87 +1,98 @@
 export type Polity =
-  | "republic"
-  | "monarchy"
-  | "empire"
-  | "federation"
-  | "theocracy"
-  | "communist_state"
-  | "military_junta"
-  | "democracy"
-  | "sultanate"
-  | "tribal_confederation";
+  | 'republic' | 'monarchy' | 'empire' | 'federation'
+  | 'theocracy' | 'communist_state' | 'military_junta'
+  | 'democracy' | 'sultanate' | 'tribal_confederation'
 
-export type Region = "Asia" | "Americas" | "Africa" | "Europe" | "Oceania";
+export type Region = 'Europe' | 'Asia' | 'Americas' | 'Africa' | 'Oceania'
+
+export type EventType = 'world' | 'diplomatic' | 'military' | 'economic' | 'social'
 
 export interface NationStats {
-  gdp: number;
-  hdi: number;
-  freedom: number;
-  democracy: number;
-  population: number;
-  military: number;
-  trade: number;
-  stability: number;
-  tech: number;
+  gdp: number
+  hdi: number
+  freedom: number
+  democracy: number
+  population: number
+  military: number
+  trade: number
+  stability: number
+  tech: number
 }
 
 export interface CountryBase extends NationStats {
-  id: string; // numeric TopoJSON ID e.g. "356"
-  name: string; // real historical name
-  flag: string;
-  region: Region;
-  capital: string;
-  polity: Polity;
-  color: string; // map fill hex
-  friends: string[]; // nation IDs
-  foes: string[];
-  context: string; // 1920-era flavour text
+  id: string
+  name: string
+  flag: string
+  region: Region
+  capital: string
+  polity: Polity
+  color: string
+  friends: string[]
+  foes: string[]
+  context: string
 }
 
 export interface PlayerNation extends CountryBase {
-  // Overrideable by player
-  customName?: string; // e.g. "Bharat" instead of "India"
-  customPolity?: Polity;
-  customFlag?: string; // emoji or URL
-  customCapital?: string;
-  customDescription?: string;
-  customColor?: string;
-  lore: string[]; // accumulated narrative history
+  customName?: string
+  customPolity?: Polity
+  customFlag?: string
+  customCapital?: string
+  customDescription?: string
+  customColor?: string
+  lore: string[]
 }
 
 export interface TurnAction {
-  year: number;
-  quarter: number;
-  action: string;
+  year: number
+  quarter: number
+  action: string
 }
 
 export interface WorldEvent {
-  year: number;
-  quarter: number;
-  text: string;
-  type: "world" | "diplomatic" | "military" | "economic" | "social";
+  id: string
+  year: number
+  quarter: number
+  text: string
+  type: EventType
 }
 
 export interface DiploMessage {
-  from: string; // nation ID or 'player'
-  fromName: string;
-  text: string;
-  timestamp: number;
+  id: string
+  from: string
+  fromName: string
+  text: string
+  timestamp: number
 }
 
 export interface DiploGroup {
-  id: string;
-  name: string;
-  nationIds: string[];
-  createdAt: number;
+  id: string
+  name: string
+  nationIds: string[]
+  createdAt: number
 }
 
 export interface TurnResult {
-  narrative: string;
-  statChanges: Partial<NationStats>;
-  worldEvents: WorldEvent[];
-  newFriends: string[];
-  newFoes: string[];
-  removeFoes: string[];
-  divergenceDelta: number;
-  ticker: string;
+  narrative: string
+  statChanges: Partial<NationStats>
+  worldEvents: Array<{ text: string; type: EventType }>
+  newFriends: string[]
+  newFoes: string[]
+  removeFoes: string[]
+  occupations: Record<string, string>
+  liberations: string[]
+  divergenceDelta: number
+  ticker: string
+}
+
+export const POLITY_LABELS: Record<Polity, { label: string; description: string }> = {
+  republic:              { label: 'Republic',                description: 'Elected civilian government' },
+  democracy:             { label: 'Parliamentary Democracy', description: 'Multi-party elected parliament' },
+  monarchy:              { label: 'Constitutional Monarchy', description: 'King reigns, cabinet governs' },
+  empire:                { label: 'Empire',                  description: 'Imperial rule, expansionist ideology' },
+  federation:            { label: 'Federation',              description: 'Decentralised union of states' },
+  theocracy:             { label: 'Theocracy',               description: 'Religious authority governs' },
+  communist_state:       { label: 'Communist State',         description: 'Party-led planned economy' },
+  military_junta:        { label: 'Military Junta',          description: 'Armed forces control government' },
+  sultanate:             { label: 'Sultanate',               description: 'Hereditary Islamic monarchy' },
+  tribal_confederation:  { label: 'Tribal Confederation',    description: 'Alliance of autonomous tribes' },
 }

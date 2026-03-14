@@ -1,241 +1,186 @@
-import { useState } from "react";
-import { useGameStore } from "@/store/gameStore";
-import { useUIStore } from "@/store/uiStore";
-import type { Polity } from "@/types";
+import { useState } from 'react'
+import { useGameStore } from '@/store/gameStore'
+import { useUIStore } from '@/store/uiStore'
+import { POLITY_LABELS, type Polity } from '@/types'
 
-const POLITIES: { value: Polity; label: string; description: string }[] = [
-  {
-    value: "republic",
-    label: "Republic",
-    description: "Elected civilian government",
-  },
-  {
-    value: "democracy",
-    label: "Parliamentary Democracy",
-    description: "Multi-party elected parliament",
-  },
-  {
-    value: "monarchy",
-    label: "Constitutional Monarchy",
-    description: "King reigns, cabinet governs",
-  },
-  {
-    value: "empire",
-    label: "Empire",
-    description: "Imperial rule, expansionist ideology",
-  },
-  {
-    value: "federation",
-    label: "Federation",
-    description: "Decentralised union of states",
-  },
-  {
-    value: "theocracy",
-    label: "Theocracy",
-    description: "Religious authority governs",
-  },
-  {
-    value: "communist_state",
-    label: "Communist State",
-    description: "Party-led planned economy",
-  },
-  {
-    value: "military_junta",
-    label: "Military Junta",
-    description: "Armed forces control government",
-  },
-  {
-    value: "sultanate",
-    label: "Sultanate",
-    description: "Hereditary Islamic monarchy",
-  },
-  {
-    value: "tribal_confederation",
-    label: "Tribal Confederation",
-    description: "Alliance of autonomous tribes",
-  },
-];
+const POLITY_LIST = Object.entries(POLITY_LABELS) as [Polity, { label: string; description: string }][]
 
 export function PolityEditor() {
-  const { player, updatePlayerNation } = useGameStore();
-  const { setShowPolityEditor } = useUIStore();
+  const player = useGameStore((s) => s.player)
+  const updatePlayerNation = useGameStore((s) => s.updatePlayerNation)
+  const setShowPolityEditor = useUIStore((s) => s.setShowPolityEditor)
 
   const [form, setForm] = useState({
-    customName: player?.customName ?? player?.name ?? "",
-    customCapital: player?.customCapital ?? player?.capital ?? "",
-    customPolity: (player?.customPolity ??
-      player?.polity ??
-      "republic") as Polity,
-    customFlag: player?.customFlag ?? player?.flag ?? "",
-    customDescription: player?.customDescription ?? "",
-    customColor: player?.customColor ?? player?.color ?? "#d4a843",
-  });
+    customName:        player?.customName        ?? player?.name        ?? '',
+    customCapital:     player?.customCapital     ?? player?.capital     ?? '',
+    customPolity:      (player?.customPolity     ?? player?.polity      ?? 'republic') as Polity,
+    customFlag:        player?.customFlag        ?? player?.flag        ?? '',
+    customDescription: player?.customDescription ?? player?.context    ?? '',
+    customColor:       player?.customColor       ?? player?.color       ?? '#d4a843',
+  })
 
-  const handleSave = () => {
+  const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) =>
+    setForm((f) => ({ ...f, [k]: v }))
+
+  const save = () => {
     updatePlayerNation({
-      customName: form.customName || undefined,
-      customCapital: form.customCapital || undefined,
-      customPolity: form.customPolity,
-      customFlag: form.customFlag || undefined,
-      customDescription: form.customDescription || undefined,
-      customColor: form.customColor || undefined,
-    });
-    setShowPolityEditor(false);
-  };
+      customName:        form.customName.trim()        || undefined,
+      customCapital:     form.customCapital.trim()     || undefined,
+      customPolity:      form.customPolity,
+      customFlag:        form.customFlag.trim()        || undefined,
+      customDescription: form.customDescription.trim() || undefined,
+      customColor:       form.customColor,
+    })
+    setShowPolityEditor(false)
+  }
+
+  if (!player) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
-      <div className="bg-card border border-border rounded-lg w-[520px] max-h-[90vh] overflow-y-auto p-6">
-        <h2 className="font-cinzel text-xl text-primary mb-1">
-          Reshape Your Nation
-        </h2>
-        <p className="text-muted-foreground text-sm mb-5">
-          Rename your country, change its form of government, and define its new
-          identity. All AI interactions will personalise to these changes.
-        </p>
-
-        {/* Nation name */}
-        <div className="mb-4">
-          <label className="text-xs font-cinzel tracking-widest text-muted-foreground uppercase mb-1 block">
-            Nation Name
-          </label>
-          <input
-            className="w-full bg-input border border-border rounded px-3 py-2 text-sm"
-            value={form.customName}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, customName: e.target.value }))
-            }
-            placeholder={player?.name}
-          />
-          <p className="text-xs text-muted-foreground mt-1">
-            e.g. "Bharat" instead of "India (British)"
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 p-4">
+      <div className="bg-card border border-border rounded-sm w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl">
+        {/* Header */}
+        <div className="p-6 border-b border-border">
+          <h2 className="font-cinzel text-xl text-primary tracking-widest">Reshape Your Nation</h2>
+          <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+            Rename your country, change its government, define its identity.
+            Every AI interaction will reflect these changes.
           </p>
         </div>
 
-        {/* Capital */}
-        <div className="mb-4">
-          <label className="text-xs font-cinzel tracking-widest text-muted-foreground uppercase mb-1 block">
-            Capital City
-          </label>
-          <input
-            className="w-full bg-input border border-border rounded px-3 py-2 text-sm"
-            value={form.customCapital}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, customCapital: e.target.value }))
-            }
-            placeholder={player?.capital}
-          />
-        </div>
-
-        {/* Flag emoji */}
-        <div className="mb-4">
-          <label className="text-xs font-cinzel tracking-widest text-muted-foreground uppercase mb-1 block">
-            Flag (emoji)
-          </label>
-          <input
-            className="w-full bg-input border border-border rounded px-3 py-2 text-sm"
-            value={form.customFlag}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, customFlag: e.target.value }))
-            }
-            placeholder={player?.flag}
-          />
-        </div>
-
-        {/* Map colour */}
-        <div className="mb-4">
-          <label className="text-xs font-cinzel tracking-widest text-muted-foreground uppercase mb-1 block">
-            Map Colour
-          </label>
-          <div className="flex gap-2 items-center">
+        <div className="p-6 space-y-5">
+          {/* Name */}
+          <div>
+            <label className="block font-cinzel text-[9px] tracking-widest text-muted-foreground uppercase mb-1.5">
+              Nation Name
+            </label>
             <input
-              type="color"
-              className="w-10 h-10 rounded border border-border bg-input cursor-pointer"
-              value={form.customColor}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, customColor: e.target.value }))
-              }
+              value={form.customName}
+              onChange={(e) => set('customName', e.target.value)}
+              placeholder={player.name}
+              className="w-full bg-input border border-border rounded-sm px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary transition-colors"
             />
-            <span className="text-sm text-muted-foreground">
-              {form.customColor}
-            </span>
+            <p className="text-[10px] text-muted-foreground mt-1">e.g. "Bharat" instead of "India (British)"</p>
           </div>
-        </div>
 
-        {/* Polity selector */}
-        <div className="mb-4">
-          <label className="text-xs font-cinzel tracking-widest text-muted-foreground uppercase mb-2 block">
-            Form of Government
-          </label>
-          <div className="grid grid-cols-2 gap-2">
-            {POLITIES.map((p) => (
-              <button
-                key={p.value}
-                onClick={() =>
-                  setForm((f) => ({ ...f, customPolity: p.value }))
-                }
-                className={`text-left px-3 py-2 rounded border text-sm transition-all ${
-                  form.customPolity === p.value
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-border hover:border-primary/50"
-                }`}
-              >
-                <div className="font-medium text-xs">{p.label}</div>
-                <div className="text-xs text-muted-foreground">
-                  {p.description}
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Custom lore */}
-        <div className="mb-6">
-          <label className="text-xs font-cinzel tracking-widest text-muted-foreground uppercase mb-1 block">
-            National Description / Lore
-          </label>
-          <textarea
-            className="w-full bg-input border border-border rounded px-3 py-2 text-sm resize-none h-20"
-            value={form.customDescription}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, customDescription: e.target.value }))
-            }
-            placeholder="Describe your nation's unique identity, ideology, and goals…"
-          />
-        </div>
-
-        {/* Preview */}
-        <div className="bg-muted/30 border border-border rounded p-3 mb-5 text-sm">
-          <div className="font-cinzel text-primary mb-1">Preview</div>
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">{form.customFlag || player?.flag}</span>
+          {/* Capital + Flag row */}
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <div className="font-medium">
-                {form.customName || player?.name}
-              </div>
-              <div className="text-muted-foreground text-xs">
-                {POLITIES.find((p) => p.value === form.customPolity)?.label} ·{" "}
-                {form.customCapital || player?.capital}
+              <label className="block font-cinzel text-[9px] tracking-widest text-muted-foreground uppercase mb-1.5">
+                Capital
+              </label>
+              <input
+                value={form.customCapital}
+                onChange={(e) => set('customCapital', e.target.value)}
+                placeholder={player.capital}
+                className="w-full bg-input border border-border rounded-sm px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary transition-colors"
+              />
+            </div>
+            <div>
+              <label className="block font-cinzel text-[9px] tracking-widest text-muted-foreground uppercase mb-1.5">
+                Flag (emoji)
+              </label>
+              <input
+                value={form.customFlag}
+                onChange={(e) => set('customFlag', e.target.value)}
+                placeholder={player.flag}
+                className="w-full bg-input border border-border rounded-sm px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary transition-colors"
+              />
+            </div>
+          </div>
+
+          {/* Map colour */}
+          <div>
+            <label className="block font-cinzel text-[9px] tracking-widest text-muted-foreground uppercase mb-1.5">
+              Map Colour
+            </label>
+            <div className="flex items-center gap-3">
+              <input
+                type="color"
+                value={form.customColor}
+                onChange={(e) => set('customColor', e.target.value)}
+                className="w-12 h-10 rounded-sm border border-border bg-input cursor-pointer p-0.5"
+              />
+              <span className="font-mono-game text-sm text-muted-foreground">{form.customColor}</span>
+            </div>
+          </div>
+
+          {/* Polity */}
+          <div>
+            <label className="block font-cinzel text-[9px] tracking-widest text-muted-foreground uppercase mb-2">
+              Form of Government
+            </label>
+            <div className="grid grid-cols-2 gap-1.5">
+              {POLITY_LIST.map(([value, { label, description }]) => (
+                <button
+                  key={value}
+                  onClick={() => set('customPolity', value)}
+                  className={`text-left px-3 py-2 rounded-sm border text-left transition-all ${
+                    form.customPolity === value
+                      ? 'border-primary bg-primary/10 text-foreground'
+                      : 'border-border hover:border-primary/50 text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <div className="text-xs font-medium">{label}</div>
+                  <div className="text-[10px] text-muted-foreground">{description}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Lore / description */}
+          <div>
+            <label className="block font-cinzel text-[9px] tracking-widest text-muted-foreground uppercase mb-1.5">
+              National Identity & Lore
+            </label>
+            <textarea
+              value={form.customDescription}
+              onChange={(e) => set('customDescription', e.target.value)}
+              placeholder="Describe your nation's unique identity, ideology, and goals. The AI will use this in all interactions."
+              rows={3}
+              className="w-full bg-input border border-border rounded-sm px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary transition-colors resize-none"
+            />
+          </div>
+
+          {/* Live preview */}
+          <div className="bg-muted/30 border border-border rounded-sm p-4">
+            <p className="font-cinzel text-[9px] tracking-widest text-primary uppercase mb-2">Preview</p>
+            <div className="flex items-center gap-3">
+              <div
+                className="w-10 h-10 rounded-sm flex-shrink-0 border border-border"
+                style={{ background: form.customColor }}
+              />
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">{form.customFlag || player.flag}</span>
+                  <span className="font-cinzel text-sm text-foreground font-semibold">
+                    {form.customName || player.name}
+                  </span>
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  {POLITY_LABELS[form.customPolity].label} · {form.customCapital || player.capital}
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <div className="flex gap-2">
-          <button
-            onClick={handleSave}
-            className="flex-1 bg-primary text-primary-foreground rounded px-4 py-2 text-sm font-cinzel tracking-wider"
-          >
-            CONFIRM CHANGES
-          </button>
-          <button
-            onClick={() => setShowPolityEditor(false)}
-            className="px-4 py-2 border border-border rounded text-sm"
-          >
-            Cancel
-          </button>
+          {/* Actions */}
+          <div className="flex gap-3 pt-1">
+            <button
+              onClick={save}
+              className="flex-1 bg-primary text-primary-foreground font-cinzel text-xs tracking-widest py-3 rounded-sm hover:opacity-90 transition-opacity"
+            >
+              CONFIRM CHANGES
+            </button>
+            <button
+              onClick={() => setShowPolityEditor(false)}
+              className="px-6 border border-border text-muted-foreground font-cinzel text-xs tracking-widest rounded-sm hover:border-foreground hover:text-foreground transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
       </div>
     </div>
-  );
+  )
 }
