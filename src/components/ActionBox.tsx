@@ -1,9 +1,15 @@
 import { useState } from 'react'
 import { useGameStore } from '@/store/gameStore'
 import { useUIStore } from '@/store/uiStore'
-import { executeTurn } from '@/lib/ai'
+import { executeTurn, generateIncomingDiplo } from '@/lib/ai'
+import { useDiploStore } from '@/store/diploStore'
+import { COUNTRIES } from '@/data/countries'
 
-export function ActionBox() {
+interface ActionBoxProps {
+  onConsequence?: (narrative: string) => void
+}
+
+export function ActionBox({ onConsequence }: ActionBoxProps) {
   const [action, setAction] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -24,9 +30,35 @@ export function ActionBox() {
     try {
       const result = await executeTurn(action)
       applyTurnResult(result, action)
+
+      // 30% chance for incoming diplomacy message
+      if (Math.random() < 0.3) {
+        const potentialNations = Object.keys(COUNTRIES).filter(id => id !== player.id)
+        const triggerId = potentialNations[Math.floor(Math.random() * potentialNations.length)]
+        const nationData = COUNTRIES[triggerId]
+        
+        generateIncomingDiplo(triggerId, action).then(text => {
+          if (text) {
+            useDiploStore.getState().addIncoming({
+              fromId: triggerId,
+              fromName: nationData.name,
+              fromFlag: nationData.flag,
+              text,
+              read: false,
+              year,
+              quarter
+            })
+          }
+        })
+      }
+
+      // Show consequence toast
+      if (result.narrative && onConsequence) {
+        onConsequence(result.narrative)
+      }
+
       setAction('')
-      setTab('events')
-      setTimeout(() => setTab('advisor'), 200)
+      setTab('advisor')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'AI call failed')
     } finally {
@@ -41,13 +73,30 @@ export function ActionBox() {
     }
   }
 
+  const reserve = player ? Math.floor(player.treasury) : 0
+  const revenue = player ? Math.floor((player.gdp * 0.05) + (player.trade * 0.03)) : 0
+  const talent = player ? Math.floor(player.hdi * 1.2) : 0
+
   if (!player) return null
 
   return (
     <div className="flex-shrink-0 bg-card border-t border-border p-3">
-      <label className="block font-cinzel text-[8px] tracking-[0.2em] text-muted-foreground uppercase mb-2">
-        ◆ {getPlayerDisplayName()} — {year} Q{quarter} — Your decree
-      </label>
+      <div className="flex justify-between items-baseline mb-2">
+        <label className="block font-cinzel text-[8px] tracking-[0.2em] text-muted-foreground uppercase">
+          ◆ {getPlayerDisplayName()} — {year} Q{quarter} — Your decree
+        </label>
+        <div className="flex gap-3">
+          <span className="text-[9px] font-mono-game text-amber-500 whitespace-nowrap">
+            RESERVE: ₤{reserve}B
+          </span>
+          <span className="text-[9px] font-mono-game text-green-500 whitespace-nowrap">
+            REVENUE: +₤{revenue}B
+          </span>
+          <span className="text-[9px] font-mono-game text-sky-500 whitespace-nowrap">
+            TALENT: {talent}
+          </span>
+        </div>
+      </div>
       <div className="flex gap-2">
         <textarea
           value={action}
@@ -77,7 +126,7 @@ export function ActionBox() {
         </div>
       </div>
       {error && (
-        <p className="text-red-500 text-xs mt-1.5">{error}</p>
+        <p className="text-destructive text-xs mt-1.5">{error}</p>
       )}
       <p className="text-[9px] text-muted-foreground mt-1">Ctrl+Enter to execute</p>
     </div>

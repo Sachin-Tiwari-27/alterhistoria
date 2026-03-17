@@ -1,6 +1,7 @@
-import { Sun, Moon, Globe, Edit3, RotateCcw } from "lucide-react";
+import { Sun, Moon, Globe, Edit3, Settings, BarChart3, ScrollText } from "lucide-react";
 import { useGameStore } from "@/store/gameStore";
 import { useUIStore } from "@/store/uiStore";
+import { useDiploStore } from "@/store/diploStore";
 
 export function TopBar() {
   const year = useGameStore((s) => s.year);
@@ -10,13 +11,16 @@ export function TopBar() {
   const player = useGameStore((s) => s.player);
   const getPlayerDisplayName = useGameStore((s) => s.getPlayerDisplayName);
   const getPlayerPolityLabel = useGameStore((s) => s.getPlayerPolityLabel);
-  const resetGame = useGameStore((s) => s.resetGame);
 
   const theme = useUIStore((s) => s.theme);
   const toggleTheme = useUIStore((s) => s.toggleTheme);
   const setShowNationSelect = useUIStore((s) => s.setShowNationSelect);
-  const setShowApiModal = useUIStore((s) => s.setShowApiModal);
   const setShowPolityEditor = useUIStore((s) => s.setShowPolityEditor);
+  const toggleSettings = useUIStore((s) => s.toggleSettings);
+  const toggleWorldRankings = useUIStore((s) => s.toggleWorldRankings);
+  const toggleTimeline = useUIStore((s) => s.toggleTimeline);
+
+  const unreadCount = useDiploStore((s) => s.unreadCount);
 
   const flag = player?.customFlag ?? player?.flag ?? "";
 
@@ -81,16 +85,44 @@ export function TopBar() {
       <div className="w-px h-6 bg-border mx-1" />
 
       {/* Actions */}
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-0.5">
+        {/* Timeline / Decree History */}
+        {player && (
+          <button
+            onClick={toggleTimeline}
+            className="p-2 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            title="Decree History"
+          >
+            <ScrollText size={14} />
+          </button>
+        )}
+
+        {/* World Rankings */}
+        <button
+          onClick={toggleWorldRankings}
+          className="p-2 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors relative"
+          title="World Rankings"
+        >
+          <BarChart3 size={14} />
+        </button>
+
+        {/* Diplomacy unread badge */}
+        {unreadCount > 0 && (
+          <div className="relative -ml-1">
+            <span className="absolute -top-1 -right-1 w-4 h-4 bg-destructive text-destructive-foreground text-[8px] font-bold rounded-full flex items-center justify-center z-10">
+              {unreadCount}
+            </span>
+          </div>
+        )}
+
         <button
           onClick={toggleTheme}
           className="p-2 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-          title={
-            theme === "dark" ? "Switch to light mode" : "Switch to dark mode"
-          }
+          title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
         >
           {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
         </button>
+
         <button
           onClick={() => setShowNationSelect(true)}
           className="p-2 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
@@ -98,17 +130,13 @@ export function TopBar() {
         >
           <Globe size={14} />
         </button>
+
         <button
-          onClick={() => {
-            if (confirm("Start a new game? Current progress will be lost.")) {
-              resetGame();
-              setShowApiModal(true);
-            }
-          }}
+          onClick={toggleSettings}
           className="p-2 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-          title="New game"
+          title="Settings"
         >
-          <RotateCcw size={14} />
+          <Settings size={14} />
         </button>
       </div>
     </header>

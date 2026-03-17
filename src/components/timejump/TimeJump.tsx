@@ -10,13 +10,12 @@ export function TimeJump() {
   const year = useGameStore((s) => s.year)
 
   const targetYear    = useUIStore((s) => s.timeJumpYear)
-  const result        = useUIStore((s) => s.timeJumpResult)
   const loading       = useUIStore((s) => s.timeJumpLoading)
   const error         = useUIStore((s) => s.timeJumpError)
   const setTargetYear = useUIStore((s) => s.setTimeJumpYear)
-  const setResult     = useUIStore((s) => s.setTimeJumpResult)
   const setLoading    = useUIStore((s) => s.setTimeJumpLoading)
   const setError      = useUIStore((s) => s.setTimeJumpError)
+  const openModal     = useUIStore((s) => s.openTimeJumpModal)
 
   const minYear = Math.min(year + 1, 1979)
   const clampedTarget = Math.max(minYear, Math.min(targetYear, 1980))
@@ -30,7 +29,6 @@ export function TimeJump() {
     if (!player || loading) return
     setError('')
     setLoading(true)
-    setResult('')
     try {
       const milestones = getMilestonesForRange(year, clampedTarget)
       const system = buildTimeJumpSystemPrompt(clampedTarget, milestones)
@@ -39,7 +37,7 @@ export function TimeJump() {
         [{ role: 'user', content: `Simulate the alternate timeline narrative from ${year} to ${clampedTarget}.` }],
         1400
       )
-      setResult(reply)
+      openModal(clampedTarget, reply)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Simulation failed. Check your API key or try again.')
     } finally {
@@ -98,7 +96,7 @@ export function TimeJump() {
         </div>
 
         {/* Slider */}
-        <div className="space-y-1">
+        <div className="space-y-2 py-2">
           <input
             type="range"
             min={minYear}
@@ -106,11 +104,15 @@ export function TimeJump() {
             step={1}
             value={clampedTarget}
             onChange={(e) => setTargetYear(Number(e.target.value))}
-            className="w-full accent-primary cursor-pointer"
+            className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
           />
-          <div className="flex justify-between text-[9px] font-mono-game text-muted-foreground">
+          <div className="flex justify-between text-[9px] font-mono-game text-muted-foreground/60 uppercase tracking-tighter">
             <span>{minYear}</span>
-            <span>1950</span>
+            <span className="opacity-30">|</span>
+            <span>1940</span>
+            <span className="opacity-30">|</span>
+            <span>1960</span>
+            <span className="opacity-30">|</span>
             <span>1980</span>
           </div>
         </div>
@@ -145,24 +147,7 @@ export function TimeJump() {
 
       {/* Result — scrollable */}
       <div className="flex-1 overflow-y-auto p-4">
-        {result ? (
-          <div className="space-y-3">
-            <div className="font-cinzel text-[9px] tracking-widest text-primary uppercase">
-              {clampedTarget} — Alternate Timeline
-            </div>
-            <div className="text-[12px] leading-relaxed text-foreground space-y-3">
-              {result.split('\n\n').map((para, i) => (
-                <p key={i}>{para}</p>
-              ))}
-            </div>
-          </div>
-        ) : !loading && (
-          <div className="flex items-center justify-center h-full">
-            <p className="text-[11px] text-muted-foreground italic text-center">
-              Press Jump to simulate how history changed under your leadership.
-            </p>
-          </div>
-        )}
+        {/* No result section here — results shown in modal */}
       </div>
     </div>
   )
