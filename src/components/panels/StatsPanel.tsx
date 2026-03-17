@@ -155,7 +155,7 @@ export function StatsPanel() {
                 key={id}
                 className="text-[9px] px-1.5 py-0.5 rounded-sm bg-green-900/30 text-green-400 border border-green-900"
               >
-                ✓ {n?.name ?? id}
+                ✓ {typeof id === 'string' ? (n?.name ?? id) : 'Ally'}
               </span>
             )
           })}
@@ -166,7 +166,7 @@ export function StatsPanel() {
                 key={id}
                 className="text-[9px] px-1.5 py-0.5 rounded-sm bg-red-900/30 text-red-400 border border-red-900"
               >
-                ✗ {n?.name ?? id}
+                ✗ {typeof id === 'string' ? (n?.name ?? id) : 'Rival'}
               </span>
             )
           })}

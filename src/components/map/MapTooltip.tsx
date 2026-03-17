@@ -17,10 +17,10 @@ export function MapTooltip({ x, y, country }: MapTooltipProps) {
       </div>
       <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[10px] mb-2">
         {(['gdp', 'military', 'stability', 'tech'] as const).map((k) => (
-          <div key={k} className="flex justify-between">
-            <span className="text-muted-foreground capitalize">{k}</span>
-            <span className="font-mono-game text-foreground">{country[k]}</span>
-          </div>
+            <div key={k} className="flex justify-between">
+              <span className="text-muted-foreground capitalize">{k}</span>
+              <span className="font-mono-game text-foreground">{typeof country[k] === 'object' ? '—' : country[k]}</span>
+            </div>
         ))}
         <div className="flex justify-between">
           <span className="text-muted-foreground">Pop.</span>

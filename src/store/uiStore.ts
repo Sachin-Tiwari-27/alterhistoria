@@ -80,6 +80,18 @@ export const useUIStore = create<UIState>()(
       openTimeJumpModal: (year, result) => set({ showTimeJumpModal: true, timeJumpModalYear: year, timeJumpModalResult: result }),
       closeTimeJumpModal: () => set({ showTimeJumpModal: false }),
     }),
-    { name: 'alterhistoria-ui', partialize: (s) => ({ theme: s.theme, showLeftPanel: s.showLeftPanel, showRightPanel: s.showRightPanel, timeJumpYear: s.timeJumpYear, timeJumpResult: s.timeJumpResult }) }
+    { 
+      name: 'alterhistoria-ui', 
+      partialize: (s) => ({ 
+        theme: s.theme, 
+        showLeftPanel: s.showLeftPanel, 
+        showRightPanel: s.showRightPanel, 
+        timeJumpYear: s.timeJumpYear, 
+        timeJumpResult: s.timeJumpResult,
+        showApiModal: s.showApiModal,
+        showNationSelect: s.showNationSelect,
+        activeTab: s.activeTab
+      }) 
+    }
   )
 )

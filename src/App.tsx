@@ -31,6 +31,10 @@ export default function App() {
   const toggleLeftPanel = useUIStore((s) => s.toggleLeftPanel)
   const toggleRightPanel = useUIStore((s) => s.toggleRightPanel)
   const player = useGameStore((s) => s.player)
+  const updatePlayerNation = useGameStore((s) => s.updatePlayerNation)
+  const apiKey = useGameStore((s) => s.apiKey)
+  const setShowApiModal = useUIStore((s) => s.setShowApiModal)
+  const setShowNationSelect = useUIStore((s) => s.setShowNationSelect)
 
   const [toastNarrative, setToastNarrative] = useState<string | null>(null)
 
@@ -47,6 +51,23 @@ export default function App() {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [toggleLeftPanel, toggleRightPanel])
+  
+  // Auto-skip setup if player already exists
+  useEffect(() => {
+    if (player && apiKey) {
+      setShowApiModal(false)
+      setShowNationSelect(false)
+
+      // Sanitize friends/foes (handle previous AI hallucinations)
+      const sanitize = (list: any[]) => list.map(item => typeof item === 'string' ? item : (item?.id ?? null)).filter(Boolean)
+      const cleanFriends = sanitize(player.friends)
+      const cleanFoes = sanitize(player.foes)
+      
+      if (cleanFriends.length !== player.friends.length || cleanFoes.length !== player.foes.length) {
+         updatePlayerNation({ friends: cleanFriends, foes: cleanFoes })
+      }
+    }
+  }, [player, apiKey, setShowApiModal, setShowNationSelect, updatePlayerNation])
 
   const handleConsequence = useCallback((narrative: string) => {
     setToastNarrative(narrative)

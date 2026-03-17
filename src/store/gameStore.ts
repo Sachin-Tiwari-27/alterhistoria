@@ -175,16 +175,21 @@ export const useGameStore = create<GameState>()(
         })
 
         // Relations
-        result.newFriends.forEach(id => {
-          if (!s.player!.friends.includes(id)) s.player!.friends.push(id)
-          s.player!.foes = s.player!.foes.filter(f => f !== id)
+        const ensureId = (val: any) => typeof val === 'string' ? val : (val?.id ?? null)
+
+        result.newFriends.forEach(rawId => {
+          const id = ensureId(rawId)
+          if (id && !s.player!.friends.includes(id)) s.player!.friends.push(id)
+          if (id) s.player!.foes = s.player!.foes.filter(f => f !== id)
         })
-        result.newFoes.forEach(id => {
-          if (!s.player!.foes.includes(id)) s.player!.foes.push(id)
-          s.player!.friends = s.player!.friends.filter(f => f !== id)
+        result.newFoes.forEach(rawId => {
+          const id = ensureId(rawId)
+          if (id && !s.player!.foes.includes(id)) s.player!.foes.push(id)
+          if (id) s.player!.friends = s.player!.friends.filter(f => f !== id)
         })
-        result.removeFoes.forEach(id => {
-          s.player!.foes = s.player!.foes.filter(f => f !== id)
+        result.removeFoes.forEach(rawId => {
+          const id = ensureId(rawId)
+          if (id) s.player!.foes = s.player!.foes.filter(f => f !== id)
         })
 
         // Territorial changes

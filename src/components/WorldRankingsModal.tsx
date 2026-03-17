@@ -163,7 +163,7 @@ export function WorldRankingsModal() {
                   <td className="px-2 py-1.5 text-muted-foreground">{c.region}</td>
                   {STAT_COLS.map(col => (
                     <td key={col.key} className={`px-2 py-1.5 text-right font-mono-game ${sortKey === col.key ? 'text-primary' : 'text-foreground'}`}>
-                      {c[col.key]}
+                      {typeof c[col.key] === 'object' ? '—' : c[col.key]}
                     </td>
                   ))}
                   <td className={`px-2 py-1.5 text-right font-mono-game font-bold ${sortKey === 'total' ? 'text-primary' : 'text-foreground'}`}>

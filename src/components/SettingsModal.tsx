@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { X, Settings, Key, Cpu, Trash2, RotateCcw, CheckCircle } from 'lucide-react'
 import { useGameStore } from '@/store/gameStore'
 import { useUIStore } from '@/store/uiStore'
+import { useDiploStore } from '@/store/diploStore'
 
 export function SettingsModal() {
   const apiKey = useGameStore((s) => s.apiKey)
@@ -9,6 +10,8 @@ export function SettingsModal() {
   const resetGame = useGameStore((s) => s.resetGame)
   const toggleSettings = useUIStore((s) => s.toggleSettings)
   const setShowApiModal = useUIStore((s) => s.setShowApiModal)
+  const clearHistory = useDiploStore((s) => s.clearHistory)
+  const clearChannel = useDiploStore((s) => s.clearChannel)
 
   const [keyInput, setKeyInput] = useState(apiKey ?? '')
   const [saved, setSaved] = useState(false)
@@ -22,6 +25,8 @@ export function SettingsModal() {
   const handleReset = () => {
     if (confirm('Start a completely new game? All progress will be lost.')) {
       resetGame()
+      clearHistory()
+      clearChannel()
       toggleSettings()
       setShowApiModal(true)
     }
