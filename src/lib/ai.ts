@@ -454,3 +454,41 @@ export async function generateIncomingDiplo(
     return "";
   }
 }
+
+export async function generateAltEvents(): Promise<Array<{ text: string; type: string }>> {
+  const { player, year, divergence, nations } = useGameStore.getState();
+  if (!player) return [];
+
+  const system = `You are the alternate history engine. Based on the current state, generate 3-5 plausible but interesting world events for the current year.
+  
+  YEAR: ${year}
+  NATION: ${player.customName ?? player.name}
+  DIVERGENCE: ${divergence} pts
+  ALLIES: ${player.friends.map(id => nations[id]?.name ?? id).join(', ')}
+  RIVALS: ${player.foes.map(id => nations[id]?.name ?? id).join(', ')}
+  
+  Return a JSON array: [{"text": "...", "type": "world|military|diplomatic|social|economic"}]`;
+
+  try {
+    const raw = await callAI(system, [{ role: 'user', content: 'Generate events.' }], 600);
+    const match = raw.match(/\[[\s\S]*\]/);
+    return match ? JSON.parse(match[0]) : [];
+  } catch { return []; }
+}
+
+export async function generateIncomingDiplo(triggerId: string, playerAction: string): Promise<string> {
+  const { player, nations } = useGameStore.getState();
+  if (!player) return "";
+  const target = nations[triggerId] ?? COUNTRIES[triggerId];
+  if (!target) return "";
+
+  const system = buildDiplomacySystemPrompt(triggerId, target.name, target.context, false, []);
+  
+  try {
+    return await callAI(
+      system,
+      [{ role: 'user', content: `React to the player's recent action: "${playerAction}". You are reaching out to them via a diplomatic dispatch.` }],
+      500
+    );
+  } catch { return ""; }
+}

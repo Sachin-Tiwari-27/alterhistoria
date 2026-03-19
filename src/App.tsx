@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useUIStore } from '@/store/uiStore'
 import { useGameStore } from '@/store/gameStore'
 import { TopBar } from '@/components/layout/TopBar'
@@ -10,6 +10,11 @@ import { ActionBox } from '@/components/ActionBox'
 import { NationSelectOverlay } from '@/components/nation-select/NationSelectOverlay'
 import { PolityEditor } from '@/components/polity/PolityEditor'
 import { ApiKeyModal } from '@/components/ApiKeyModal'
+import { SettingsModal } from '@/components/SettingsModal'
+import { WorldRankingsModal } from '@/components/WorldRankingsModal'
+import { TimelineDrawer } from '@/components/layout/TimelineDrawer'
+import { TimeJumpModal } from '@/components/timejump/TimeJumpModal'
+import { ConsequenceToast } from '@/components/layout/ConsequenceToast'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 export default function App() {
@@ -17,11 +22,21 @@ export default function App() {
   const showApiModal = useUIStore((s) => s.showApiModal)
   const showNationSelect = useUIStore((s) => s.showNationSelect)
   const showPolityEditor = useUIStore((s) => s.showPolityEditor)
+  const showSettings = useUIStore((s) => s.showSettings)
+  const showWorldRankings = useUIStore((s) => s.showWorldRankings)
+  const showTimeline = useUIStore((s) => s.showTimeline)
+  const showTimeJumpModal = useUIStore((s) => s.showTimeJumpModal)
   const showLeftPanel = useUIStore((s) => s.showLeftPanel)
   const showRightPanel = useUIStore((s) => s.showRightPanel)
   const toggleLeftPanel = useUIStore((s) => s.toggleLeftPanel)
   const toggleRightPanel = useUIStore((s) => s.toggleRightPanel)
   const player = useGameStore((s) => s.player)
+  const updatePlayerNation = useGameStore((s) => s.updatePlayerNation)
+  const apiKey = useGameStore((s) => s.apiKey)
+  const setShowApiModal = useUIStore((s) => s.setShowApiModal)
+  const setShowNationSelect = useUIStore((s) => s.setShowNationSelect)
+
+  const [toastNarrative, setToastNarrative] = useState<string | null>(null)
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')
@@ -29,16 +44,36 @@ export default function App() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger if user is typing in an input/textarea
-      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') {
-        return
-      }
+      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return
       if (e.key === '[') toggleLeftPanel()
       if (e.key === ']') toggleRightPanel()
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [toggleLeftPanel, toggleRightPanel])
+  
+  // Auto-skip setup if player already exists
+  useEffect(() => {
+    if (player && apiKey) {
+      setShowApiModal(false)
+      setShowNationSelect(false)
+
+      // Sanitize friends/foes (handle previous AI hallucinations)
+      const sanitize = (list: any[]) => list.map(item => typeof item === 'string' ? item : (item?.id ?? null)).filter(Boolean)
+      const cleanFriends = sanitize(player.friends)
+      const cleanFoes = sanitize(player.foes)
+      
+      if (cleanFriends.length !== player.friends.length || cleanFoes.length !== player.foes.length) {
+         updatePlayerNation({ friends: cleanFriends, foes: cleanFoes })
+      }
+    }
+  }, [player, apiKey, setShowApiModal, setShowNationSelect, updatePlayerNation])
+
+  const handleConsequence = useCallback((narrative: string) => {
+    setToastNarrative(narrative)
+  }, [])
+
+  const dismissToast = useCallback(() => setToastNarrative(null), [])
 
   return (
     <div className="h-screen flex flex-col overflow-hidden font-garamond bg-background text-foreground">
@@ -56,7 +91,7 @@ export default function App() {
         <div className="flex flex-col flex-1 overflow-hidden min-w-0 relative">
           <div className="flex-1 relative overflow-hidden min-h-0 bg-background">
             <WorldMap />
-            
+
             {/* Panel Toggles */}
             <button
               onClick={toggleLeftPanel}
@@ -77,7 +112,7 @@ export default function App() {
               </div>
             </button>
           </div>
-          <ActionBox />
+          <ActionBox onConsequence={handleConsequence} />
         </div>
 
         {/* Right Panel Wrapper */}
@@ -88,9 +123,19 @@ export default function App() {
         </div>
       </div>
 
+      {/* Consequence Toast (above action box) */}
+      {toastNarrative && (
+        <ConsequenceToast narrative={toastNarrative} onDismiss={dismissToast} />
+      )}
+
+      {/* Overlays & Modals */}
       {showApiModal && <ApiKeyModal />}
       {showNationSelect && <NationSelectOverlay />}
       {showPolityEditor && player && <PolityEditor />}
+      {showSettings && <SettingsModal />}
+      {showWorldRankings && <WorldRankingsModal />}
+      {showTimeline && <TimelineDrawer />}
+      {showTimeJumpModal && <TimeJumpModal />}
     </div>
   )
 }

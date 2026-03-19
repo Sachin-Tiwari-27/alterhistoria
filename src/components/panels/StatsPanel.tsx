@@ -198,6 +198,11 @@ export function StatsPanel() {
       "critical",
   );
 
+  // Derived stats
+  const reserve = Math.floor(player.treasury)
+  const revenue = Math.floor((player.gdp * 0.05) + (player.trade * 0.03))
+  const talentPool = Math.floor(player.hdi * 1.2)
+
   return (
     <aside className="w-56 h-full flex-shrink-0 bg-card border-r border-border flex flex-col overflow-hidden">
       {/* Header */}
