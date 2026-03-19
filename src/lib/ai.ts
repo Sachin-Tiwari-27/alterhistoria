@@ -7,10 +7,10 @@ export interface AIMessage {
   content: string;
 }
 
-// ─── Core caller ────────────────────────────────────────────────────────────
+// ─── Core caller ─────────────────────────────────────────────────────────────
 
-const PRIMARY_MODEL  = 'openrouter/hunter-alpha'
-const FALLBACK_MODEL = 'arcee-ai/trinity-mini:free'
+const PRIMARY_MODEL = "openrouter/hunter-alpha";
+const FALLBACK_MODEL = "arcee-ai/trinity-mini:free";
 
 async function callOpenRouter(
   model: string,
@@ -19,25 +19,26 @@ async function callOpenRouter(
   maxTokens: number,
   apiKey: string,
 ): Promise<string> {
-  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
+  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
-      'HTTP-Referer': 'https://alterhistoria.game',
-      'X-Title': 'Alter Historia',
+      "HTTP-Referer": "https://alterhistoria.game",
+      "X-Title": "Alter Historia",
     },
     body: JSON.stringify({
       model,
       max_tokens: maxTokens,
-      messages: [{ role: 'system', content: system }, ...messages],
+      messages: [{ role: "system", content: system }, ...messages],
     }),
-  })
-  const data = await res.json()
-  if (data.error) throw new Error(data.error.message ?? `OpenRouter error (${model})`)
-  const text = data.choices?.[0]?.message?.content ?? ''
-  if (!text) throw new Error(`Empty response from ${model}`)
-  return text
+  });
+  const data = await res.json();
+  if (data.error)
+    throw new Error(data.error.message ?? `OpenRouter error (${model})`);
+  const text = data.choices?.[0]?.message?.content ?? "";
+  if (!text) throw new Error(`Empty response from ${model}`);
+  return text;
 }
 
 export async function callAI(
@@ -45,23 +46,42 @@ export async function callAI(
   messages: AIMessage[],
   maxTokens = 900,
 ): Promise<string> {
-  const apiKey = useGameStore.getState().apiKey
-  if (!apiKey) throw new Error('No API key set. Please add your OpenRouter key in Settings.')
-
+  const apiKey = useGameStore.getState().apiKey;
+  if (!apiKey)
+    throw new Error(
+      "No API key set. Please add your OpenRouter key in Settings.",
+    );
   try {
-    return await callOpenRouter(PRIMARY_MODEL, system, messages, maxTokens, apiKey)
+    return await callOpenRouter(
+      PRIMARY_MODEL,
+      system,
+      messages,
+      maxTokens,
+      apiKey,
+    );
   } catch (primaryErr) {
-    console.warn(`[AI] Primary model failed (${PRIMARY_MODEL}):`, primaryErr)
+    console.warn(`[AI] Primary model failed (${PRIMARY_MODEL}):`, primaryErr);
     try {
-      return await callOpenRouter(FALLBACK_MODEL, system, messages, maxTokens, apiKey)
+      return await callOpenRouter(
+        FALLBACK_MODEL,
+        system,
+        messages,
+        maxTokens,
+        apiKey,
+      );
     } catch (fallbackErr) {
-      console.error(`[AI] Fallback model also failed (${FALLBACK_MODEL}):`, fallbackErr)
-      throw new Error(`AI unavailable. Primary: ${(primaryErr as Error).message}. Fallback: ${(fallbackErr as Error).message}`)
+      console.error(
+        `[AI] Fallback model also failed (${FALLBACK_MODEL}):`,
+        fallbackErr,
+      );
+      throw new Error(
+        `AI unavailable. Primary: ${(primaryErr as Error).message}. Fallback: ${(fallbackErr as Error).message}`,
+      );
     }
   }
 }
 
-// ─── Nation identity block (used in every prompt) ───────────────────────────
+// ─── Compact nation identity block (~60 tokens vs old ~200) ──────────────────
 
 export function buildNationIdentity(player: PlayerNation): string {
   const name = player.customName ?? player.name;
@@ -69,93 +89,123 @@ export function buildNationIdentity(player: PlayerNation): string {
   const capital = player.customCapital ?? player.capital;
   const flag = player.customFlag ?? player.flag;
   const desc = player.customDescription ?? player.context;
-  const lore = player.lore.slice(-3).join(" → ");
-
-  return `NATION: ${flag} ${name} | POLITY: ${polity.replace(/_/g, " ")} | CAPITAL: ${capital}
+  const recentLore = player.lore.at(-1) ?? "";
+  return `NATION: ${flag} ${name} | ${polity.replace(/_/g, " ")} | ${capital}
 IDENTITY: ${desc}
-ACCUMULATED LORE: ${lore}`;
+RECENT LORE: ${recentLore}`;
 }
 
-// ─── Turn processor ─────────────────────────────────────────────────────────
+// ─── Compressed history helpers ───────────────────────────────────────────────
+
+const COMPRESS_EVERY = 5;
+
+export async function maybeCompressHistory(): Promise<void> {
+  const { turn, actions, compressedHistory, setCompressedHistory } =
+    useGameStore.getState();
+  const lastAt = compressedHistory?.asOfTurn ?? 0;
+  const newOnes = turn - lastAt;
+  if (newOnes < COMPRESS_EVERY) return;
+  const toCompress = actions.slice(0, actions.length - 2);
+  if (toCompress.length === 0) return;
+  const lines = toCompress
+    .map((a) => `${a.year}Q${a.quarter}: ${a.action}`)
+    .join(" | ");
+  try {
+    const summary = await callAI(
+      "Summarise these player actions in exactly 2 sentences. Be specific and terse. No preamble.",
+      [{ role: "user", content: lines }],
+      120,
+    );
+    setCompressedHistory({
+      summary: summary.trim(),
+      asOfTurn: turn,
+      rawAfter: actions.slice(-2),
+    });
+  } catch {
+    /* non-critical */
+  }
+}
+
+function buildHistoryContext(): string {
+  const { compressedHistory, actions } = useGameStore.getState();
+  if (compressedHistory) {
+    const recent = compressedHistory.rawAfter
+      .map((a) => `${a.year}Q${a.quarter}: ${a.action}`)
+      .join(" | ");
+    return `HISTORY: ${compressedHistory.summary}${recent ? ` | RECENT: ${recent}` : ""}`;
+  }
+  const recent = actions
+    .slice(-3)
+    .map((a) => `${a.year}Q${a.quarter}: ${a.action}`)
+    .join(" | ");
+  return recent ? `RECENT ACTIONS: ${recent}` : "RECENT ACTIONS: none";
+}
+
+// ─── Turn processor ───────────────────────────────────────────────────────────
 
 export function buildTurnSystemPrompt(): string {
-  const { player, year, quarter, divergence, actions, nations } =
+  const { player, year, quarter, divergence, nations, activeCrises } =
     useGameStore.getState();
   if (!player) return "";
-
   const friendNames =
-    player.friends.map((id) => nations[id]?.name ?? id).join(", ") || "none";
+    player.friends
+      .slice(0, 6)
+      .map((id) => nations[id]?.name ?? id)
+      .join(", ") || "none";
   const foeNames =
-    player.foes.map((id) => nations[id]?.name ?? id).join(", ") || "none";
-  const recentActions =
-    actions
-      .slice(-4)
-      .map((a) => `${a.year}Q${a.quarter}: ${a.action}`)
-      .join(" | ") || "none";
+    player.foes
+      .slice(0, 6)
+      .map((id) => nations[id]?.name ?? id)
+      .join(", ") || "none";
+  const reserve = Math.floor(player.treasury);
+  const revenue = Math.floor(player.gdp * 0.05 + player.trade * 0.03);
+  const crisisNote =
+    activeCrises.length > 0
+      ? `\nACTIVE CRISES: ${activeCrises.map((c) => `${c.title}(${c.turnsRemaining}t)`).join(", ")}`
+      : "";
 
-  const reserve = Math.floor(player.treasury)
-  const revenue = Math.floor((player.gdp * 0.05) + (player.trade * 0.03))
-  const talent = Math.floor(player.hdi * 1.2)
-
-  return `You are the narrator-engine of Alter Historia, an alternate history grand strategy game starting in 1920.
+  return `You are the narrator-engine of Alter Historia, an alternate history grand strategy game (1920+).
 
 ${buildNationIdentity(player)}
 
-YEAR: ${year} Q${quarter}
-STATS: GDP:${player.gdp} HDI:${player.hdi} Military:${player.military} Stability:${player.stability} Tech:${player.tech} Freedom:${player.freedom} Democracy:${player.democracy} Trade:${player.trade} Population:${player.population}M
-CONSTRAINTS: Treasure Reserve: ₤${reserve}B | Quarterly Net Revenue: ₤${revenue}B | Talent Pool (HDI): ${talent}
-ALLIES: ${friendNames}
-RIVALS: ${foeNames}
-DIVERGENCE FROM REAL HISTORY: ${divergence} pts
-RECENT PLAYER ACTIONS: ${recentActions}
+YEAR: ${year} Q${quarter} | DIVERGENCE: ${divergence}pts
+STATS: GDP:${player.gdp} HDI:${player.hdi} Mil:${player.military} Stab:${player.stability} Tech:${player.tech} Free:${player.freedom} Dem:${player.democracy} Trade:${player.trade} Pop:${player.population}M
+BUDGET: Reserve:₤${reserve}B | Revenue:+₤${revenue}B/qtr
+ALLIES: ${friendNames} | RIVALS: ${foeNames}
+${buildHistoryContext()}${crisisNote}
 
-Rules:
-- TREASURY & BUDGET: Expensive decrees (war, major industrialization, massive social programs) should return a "budgetCost". If the player's reserve is low, simulate financial strain, debt, or underfunded failures in your narrative.
-- TALENT (HDI): High HDI acts as a multiplier for Tech and GDP progress. Low HDI (under 40) triggers "talent drain" or "brain drain" crises and makes complex reforms slower or more unstable.
-- INDEPENDENCE & PARTITION: If a colony or territory gains independence from its colonizer (e.g. India from UK), use the "transfers" field to move GDP and Population from the parent nation to the new one. This fundamentally weakens the colonizer.
-- The player's custom name, polity, flag, and identity ALWAYS override the historical defaults. Never use the original nation name if a custom one is set.
-- Simulate realistic but DRAMATIC alternate history consequences. Do not just maintain the status quo. Be bold and imaginative.
-- Consider how neighbouring nations react, cascading geopolitical shocks, and what unintended consequences occur.
-- Return ONLY valid JSON — no markdown fences, no preamble, no trailing text.
+RULES:
+- BUDGET: Expensive actions must return budgetCost. Low reserve → narrate financial strain.
+- STATS: stability<25→domestic unrest; military<15→enemies probe; treasury<5→austerity.
+- CRISES: Address active crises or worsen their stat penalties.
+- INDEPENDENCE/PARTITION: Use "transfers" to move GDP+pop from coloniser to new nation. For composite territories (British India = ISO 356+586+050+104; French Indochina = 704+116+418; Dutch East Indies = 360), liberate ALL member ISOs, not just one.
+- Player custom identity ALWAYS overrides historical defaults.
+- Return ONLY valid JSON, no markdown fences.
 
 JSON schema:
-{
-  "narrative": "3-4 vivid, specific sentences describing consequences",
-  "statChanges": {"gdp":0,"hdi":0,"military":0,"stability":0,"tech":0,"freedom":0,"democracy":0,"trade":0,"population":0, "treasury": 0},
-  "worldEvents": [{"text":"event description","type":"world|diplomatic|military|economic|social"}],
-  "newFriends": [],
-  "newFoes": [],
-  "removeFoes": [],
-  "occupations": {}, 
-  "liberations": [],
-  "transfers": [{"fromId": "parentNationId", "toId": "newNationId", "stats": {"gdp": 20, "population": 50}}],
-  "budgetCost": 15,
-  "divergenceDelta": 10,
-  "ticker": "Short punchy news headline under 12 words"
+{"narrative":"3-4 vivid sentences","statChanges":{"gdp":0,"hdi":0,"military":0,"stability":0,"tech":0,"freedom":0,"democracy":0,"trade":0,"population":0,"treasury":0},"worldEvents":[{"text":"...","type":"world|diplomatic|military|economic|social|crisis"}],"newFriends":[],"newFoes":[],"removeFoes":[],"occupations":{},"liberations":[],"transfers":[{"fromId":"...","toId":"...","stats":{"gdp":0,"population":0}}],"budgetCost":0,"divergenceDelta":10,"ticker":"Punchy headline <12 words","resolvedCrises":[]}`;
 }
 
-For occupations: populate as '"occupations": { "targetNationId": "occupierNationId" }' when a territory is conquered or annexed.
-For liberations: populate as '"liberations": ["targetNationId"]' if a previously occupied territory gains independence.`;
-}
-
-export async function executeTurn(action: string): Promise<TurnResult> {
+export async function executeTurn(actions: string[]): Promise<TurnResult> {
   const { year, quarter } = useGameStore.getState();
   const system = buildTurnSystemPrompt();
+  const actionText =
+    actions.length === 1
+      ? actions[0]
+      : actions.map((a, i) => `${i + 1}. ${a}`).join("\n");
   const raw = await callAI(
     system,
     [
       {
         role: "user",
-        content: `Player action for ${year} Q${quarter}: ${action}\n\nSimulate realistic but bold consequences. Consider: 1) How does this fundamentally diverge from real history? 2) How do neighbouring nations and great powers react to this disruption? 3) What dramatic unintended consequences occur? Push the boundaries of alternate history if divergence is high.`,
+        content: `Player actions for ${year} Q${quarter}:\n${actionText}\n\nSimulate bold alternate-history consequences.`,
       },
     ],
     1000,
   );
-
   const match = raw.match(/\{[\s\S]*\}/);
   if (!match) throw new Error("AI returned invalid JSON");
   const parsed = JSON.parse(match[0]);
-
   return {
     narrative: parsed.narrative ?? "",
     statChanges: parsed.statChanges ?? {},
@@ -174,46 +224,131 @@ export async function executeTurn(action: string): Promise<TurnResult> {
     budgetCost: parsed.budgetCost ?? 0,
     divergenceDelta: parsed.divergenceDelta ?? 10,
     ticker: parsed.ticker ?? "",
+    resolvedCrises: parsed.resolvedCrises ?? [],
   };
 }
 
-// ─── Advisor ────────────────────────────────────────────────────────────────
+// ─── Advisor ──────────────────────────────────────────────────────────────────
 
 export function buildAdvisorSystemPrompt(): string {
-  const { player, year, divergence, nations, actions, events } =
+  const { player, year, divergence, nations, activeCrises } =
     useGameStore.getState();
   if (!player) return "";
-
   const friendNames =
-    player.friends.map((id) => nations[id]?.name ?? id).join(", ") || "none";
-  const foeNames =
-    player.foes.map((id) => nations[id]?.name ?? id).join(", ") || "none";
-
-  const recentActions =
-    actions
-      .slice(-5)
-      .map((a) => `${a.year}Q${a.quarter}: ${a.action}`)
-      .join(" | ") || "none";
-  const recentEvents =
-    events
+    player.friends
       .slice(0, 5)
-      .map((e) => `${e.year}Q${e.quarter}: ${e.text}`)
-      .join(" | ") || "none";
-
-  return `You are the Chief Advisor and Foreign Secretary to the leader of ${player.customName ?? player.name}, a ${(player.customPolity ?? player.polity).replace(/_/g, " ")}, in the year ${year}.
+      .map((id) => nations[id]?.name ?? id)
+      .join(", ") || "none";
+  const foeNames =
+    player.foes
+      .slice(0, 5)
+      .map((id) => nations[id]?.name ?? id)
+      .join(", ") || "none";
+  const crisisNote =
+    activeCrises.length > 0
+      ? `\nURGENT CRISES: ${activeCrises.map((c) => c.title).join(", ")}`
+      : "";
+  return `You are the Chief Advisor to ${player.customName ?? player.name}, a ${(player.customPolity ?? player.polity).replace(/_/g, " ")}, in ${year}.
 
 ${buildNationIdentity(player)}
+Stats: GDP:${player.gdp} Mil:${player.military} Stab:${player.stability} Treasury:₤${Math.floor(player.treasury)}B
+Allies: ${friendNames} | Rivals: ${foeNames} | Divergence: ${divergence}pts
+${buildHistoryContext()}${crisisNote}
 
-Current allies: ${friendNames}
-Current rivals: ${foeNames}
-Divergence from real history: ${divergence} pts
-Recent Actions taken by you: ${recentActions}
-Recent World Events: ${recentEvents}
-
-Your role: Give sharp, specific, historically-grounded strategic counsel. You are aware this is an alternate timeline. The player may ask for general advice, or ask you to review a proposed decree. When reviewing a decree, analyse its risks, benefits, and geopolitical consequences based on recent world events and past actions. Always address the player's nation by its custom name if set. Be direct and authoritative — no hedging. Maximum 160 words per response.`;
+Give sharp, historically-grounded counsel in ≤150 words. Be direct — no hedging.`;
 }
 
-// ─── Diplomacy ──────────────────────────────────────────────────────────────
+export function trimAdvisorHistory(
+  msgs: AIMessage[],
+  keepLast = 6,
+): AIMessage[] {
+  return msgs.length <= keepLast ? msgs : msgs.slice(-keepLast);
+}
+
+// ─── Advisor quick-action buttons ─────────────────────────────────────────────
+
+export async function generateGameSummary(): Promise<string> {
+  const { player, year, divergence, actions } = useGameStore.getState();
+  if (!player) return "";
+  const recentActions = actions
+    .slice(-5)
+    .map((a) => `${a.year}Q${a.quarter}: ${a.action}`)
+    .join(" | ");
+  return callAI(
+    "You are a historian summarising an alternate timeline. Be vivid and specific. Max 200 words.",
+    [
+      {
+        role: "user",
+        content: `Summarise the game for ${player.customName ?? player.name} in ${year}. Divergence: ${divergence}pts. Turns: ${actions.length}. Recent: ${recentActions}. Stats: GDP:${player.gdp} Mil:${player.military} Stab:${player.stability}.`,
+      },
+    ],
+    280,
+  );
+}
+
+export async function generateStrategicAdvice(): Promise<string> {
+  return callAI(
+    buildAdvisorSystemPrompt(),
+    [
+      {
+        role: "user",
+        content:
+          "Give me your top 3 strategic priorities right now, each in 2 sentences.",
+      },
+    ],
+    300,
+  );
+}
+
+export async function generateBestCourseOfAction(): Promise<string> {
+  const { player } = useGameStore.getState();
+  const name = player?.customName ?? player?.name ?? "your nation";
+  return callAI(
+    buildAdvisorSystemPrompt(),
+    [
+      {
+        role: "user",
+        content: `What single decree should I issue this turn for maximum impact? Give me the exact wording to enter as my action for ${name}, then explain why in 2 sentences.`,
+      },
+    ],
+    250,
+  );
+}
+
+// ─── AI-suggested actions ─────────────────────────────────────────────────────
+
+export interface SuggestedActions {
+  military: string[];
+  economic: string[];
+  diplomatic: string[];
+  social: string[];
+}
+
+export async function generateSuggestedActions(): Promise<SuggestedActions> {
+  const { player, year } = useGameStore.getState();
+  if (!player)
+    return { military: [], economic: [], diplomatic: [], social: [] };
+  const name = player.customName ?? player.name;
+  const raw = await callAI(
+    `You are a strategy advisor for ${name} in ${year}. Return ONLY valid JSON, no markdown.`,
+    [
+      {
+        role: "user",
+        content: `Stats: GDP:${player.gdp} Mil:${player.military} Stab:${player.stability} HDI:${player.hdi} Treasury:₤${Math.floor(player.treasury)}B. ${buildHistoryContext()}\n\nGenerate 3 concrete, specific, actionable decrees per category.\nJSON: {"military":["...","...","..."],"economic":["...","...","..."],"diplomatic":["...","...","..."],"social":["...","...","..."]}`,
+      },
+    ],
+    600,
+  );
+  const match = raw.match(/\{[\s\S]*\}/);
+  if (!match) return { military: [], economic: [], diplomatic: [], social: [] };
+  try {
+    return JSON.parse(match[0]);
+  } catch {
+    return { military: [], economic: [], diplomatic: [], social: [] };
+  }
+}
+
+// ─── Diplomacy ────────────────────────────────────────────────────────────────
 
 export function buildDiplomacySystemPrompt(
   targetId: string,
@@ -224,61 +359,100 @@ export function buildDiplomacySystemPrompt(
 ): string {
   const { player, year, divergence } = useGameStore.getState();
   if (!player) return "";
-
   const playerName = player.customName ?? player.name;
   const rel = player.foes.includes(targetId)
     ? "hostile"
     : player.friends.includes(targetId)
       ? "friendly"
       : "neutral";
-
   const groupNote = isGroup
-    ? `This is a MULTILATERAL diplomatic channel also including: ${groupMemberNames.join(", ")}. Address all parties appropriately.`
+    ? `Multilateral channel also including: ${groupMemberNames.join(", ")}.`
     : "";
-
-  const playerStats = `Their nation stats — GDP:${player.gdp} Military:${player.military} Stability:${player.stability}`;
-
-  return `You are the head of government of ${targetName} in ${year}. You are engaged in diplomatic correspondence with ${playerName}.
-
-Your nation's context: ${targetContext}
-Your relationship with ${playerName}: ${rel}
-${playerStats}
-Divergence from real history: ${divergence} pts
+  return `You are head of government of ${targetName} in ${year}. Corresponding with ${playerName}.
+Context: ${targetContext}
+Relationship: ${rel} | Their stats: GDP:${player.gdp} Mil:${player.military} | Divergence: ${divergence}pts
 ${groupNote}
-
-Stay strictly in character as a statesman of this era and nation. React authentically to the diplomatic approach — be guarded if hostile, warm if friendly, calculated if neutral. Reference real geopolitical concerns of your nation in ${year}. Maximum 120 words.`;
+Stay in character as a 1920s statesman. Max 120 words.`;
 }
 
-// ─── Time Jump ──────────────────────────────────────────────────────────────
+// ─── Time Jump ────────────────────────────────────────────────────────────────
 
 export function buildTimeJumpSystemPrompt(
   targetYear: number,
   milestones: string,
 ): string {
-  const { player, year, divergence, actions, nations } =
-    useGameStore.getState();
+  const { player, year, divergence, nations } = useGameStore.getState();
   if (!player) return "";
-
   const playerName = player.customName ?? player.name;
   const friendNames =
-    player.friends.map((id) => nations[id]?.name ?? id).join(", ") || "none";
+    player.friends
+      .slice(0, 5)
+      .map((id) => nations[id]?.name ?? id)
+      .join(", ") || "none";
   const foeNames =
-    player.foes.map((id) => nations[id]?.name ?? id).join(", ") || "none";
-  const actionSummary =
-    actions.map((a) => `${a.year}Q${a.quarter}: ${a.action}`).join(" | ") ||
-    "none";
-
-  return `You are a historian narrating an alternate timeline. The player's choices have created ${divergence} points of divergence from real history.
+    player.foes
+      .slice(0, 5)
+      .map((id) => nations[id]?.name ?? id)
+      .join(", ") || "none";
+  return `You are a historian narrating an alternate timeline. ${divergence} pts divergence.
 
 ${buildNationIdentity(player)}
-Current stats: GDP:${player.gdp} HDI:${player.hdi} Military:${player.military} Freedom:${player.freedom} Democracy:${player.democracy}
+Stats: GDP:${player.gdp} Mil:${player.military} Stab:${player.stability} HDI:${player.hdi}
 Allies: ${friendNames} | Rivals: ${foeNames}
-All player actions taken (${year} to present): ${actionSummary}
+${buildHistoryContext()}
+Real events ${year}→${targetYear}: ${milestones}
 
-Projecting from ${year} to ${targetYear}.
-Real historical events that occurred between these years: ${milestones}
+Write 5 vivid paragraphs about ${playerName} in ${targetYear}: (1) how choices changed history, (2) nation's triumphs/struggles, (3) how wider world diverged, (4) new alliances/conflicts, (5) near future.`;
+}
 
-Write a 5-paragraph vivid alternate history narrative describing what ${playerName} and the world look like in ${targetYear}. Be highly creative and bold — name specific events, brilliant or disastrous leaders, and dramatic consequences. Show: (1) How the player's choices radically changed historical outcomes, (2) What the nation looks like now (its triumphs and struggles), (3) How the wider world has diverged into a deeply altered state, (4) What new, surprising alliances and conflicts define the era, (5) What the near future holds in this timeline. Reference the player's custom identity throughout.`;
+// ─── Misc ─────────────────────────────────────────────────────────────────────
+
+export async function generateAltEvents(): Promise<
+  Array<{ text: string; type: string }>
+> {
+  const { player, year, divergence } = useGameStore.getState();
+  if (!player) return [];
+  try {
+    const raw = await callAI(
+      `Generate 3 plausible world events for ${player.customName ?? player.name} in ${year} (divergence: ${divergence}pts). Return JSON array only: [{"text":"...","type":"world|military|diplomatic|social|economic"}]`,
+      [{ role: "user", content: "Generate." }],
+      400,
+    );
+    const match = raw.match(/\[[\s\S]*\]/);
+    return match ? JSON.parse(match[0]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function generateIncomingDiplo(
+  triggerId: string,
+  playerAction: string,
+): Promise<string> {
+  const { player, nations } = useGameStore.getState();
+  if (!player) return "";
+  const target = nations[triggerId] ?? COUNTRIES[triggerId];
+  if (!target) return "";
+  try {
+    return await callAI(
+      buildDiplomacySystemPrompt(
+        triggerId,
+        target.name,
+        target.context,
+        false,
+        [],
+      ),
+      [
+        {
+          role: "user",
+          content: `React to the player's recent action: "${playerAction}". Send a diplomatic dispatch.`,
+        },
+      ],
+      350,
+    );
+  } catch {
+    return "";
+  }
 }
 
 export async function generateAltEvents(): Promise<Array<{ text: string; type: string }>> {
